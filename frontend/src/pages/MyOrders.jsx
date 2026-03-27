@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { getOrders } from '../api/orders.api';
 import OrderCard from '../components/OrderCard';
+import { useAuth } from '../context/AuthContext';
 
 const TABS = ['all', 'pending', 'accepted', 'rejected'];
 
 export default function MyOrders() {
+  const { user }            = useAuth();
   const [orders, setOrders] = useState([]);
   const [tab, setTab]       = useState('all');
   const [loading, setLoading] = useState(true);
+
+  const location = [user?.city, user?.state].filter(Boolean).join(', ');
 
   useEffect(() => {
     getOrders().then((data) => { setOrders(data); setLoading(false); });
@@ -25,7 +29,10 @@ export default function MyOrders() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {orders.length} order{orders.length !== 1 ? 's' : ''} total
+          {location && <span> · 📍 {location}</span>}
+        </p>
       </div>
 
       {/* Filter tabs */}

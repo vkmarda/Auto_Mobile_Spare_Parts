@@ -17,3 +17,9 @@ export const getStats = (days = 7) =>
 
 export const bulkAcceptOrders = (order_ids) =>
   client.post('/vendor/bulk-accept', { order_ids }).then((r) => r.data);
+
+export const getSalesChart = (days = 7) =>
+  client.get(`/vendor/chart?days=${days}`).then((r) => r.data);
+
+export const getProductStats = (days = 7) =>
+  client.get(`/vendor/product-stats?days=${days}`).then((r) => r.data);

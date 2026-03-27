@@ -11,7 +11,7 @@ const login = async (req, res, next) => {
     }
 
     const result = await query(
-      'SELECT id, name, email, password, role FROM users WHERE email = $1',
+      'SELECT id, name, email, password, role, mobile, city, state FROM users WHERE email = $1',
       [email]
     );
     const user = result.rows[0];
@@ -26,7 +26,10 @@ const login = async (req, res, next) => {
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, mobile: user.mobile, city: user.city, state: user.state },
+    });
   } catch (err) {
     next(err);
   }

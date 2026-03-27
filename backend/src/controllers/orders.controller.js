@@ -66,18 +66,28 @@ const getOrders = async (req, res, next) => {
     let result;
     if (role === 'retailer') {
       result = await query(
-        `SELECT o.id, u.name AS retailer_name, o.status, o.total_amount, o.created_at
+        `SELECT o.id, o.status, o.total_amount, o.notes, o.created_at, o.updated_at,
+                u.name AS retailer_name, u.email AS retailer_email, u.mobile AS retailer_mobile,
+                u.city AS retailer_city, u.state AS retailer_state,
+                COUNT(oi.id) AS item_count
          FROM orders o
          JOIN users u ON u.id = o.retailer_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
          WHERE o.retailer_id = $1
+         GROUP BY o.id, u.name, u.email, u.mobile, u.city, u.state
          ORDER BY o.created_at DESC`,
         [userId]
       );
     } else {
       result = await query(
-        `SELECT o.id, u.name AS retailer_name, o.status, o.total_amount, o.created_at
+        `SELECT o.id, o.status, o.total_amount, o.notes, o.created_at, o.updated_at,
+                u.name AS retailer_name, u.email AS retailer_email, u.mobile AS retailer_mobile,
+                u.city AS retailer_city, u.state AS retailer_state,
+                COUNT(oi.id) AS item_count
          FROM orders o
          JOIN users u ON u.id = o.retailer_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         GROUP BY o.id, u.name, u.email, u.mobile, u.city, u.state
          ORDER BY o.created_at DESC`,
         []
       );
@@ -95,7 +105,8 @@ const getOrderById = async (req, res, next) => {
     const { id: userId, role } = req.user;
 
     const orderResult = await query(
-      `SELECT o.*, u.name AS retailer_name
+      `SELECT o.*, u.name AS retailer_name, u.email AS retailer_email,
+              u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state
        FROM orders o
        JOIN users u ON u.id = o.retailer_id
        WHERE o.id = $1`,
@@ -138,9 +149,14 @@ const acceptOrder = async (req, res, next) => {
       return res.status(400).json({ error: 'Only pending orders can be accepted' });
     }
 
+    await query(
+      `UPDATE orders SET status = 'accepted', updated_at = now() WHERE id = $1`,
+      [id]
+    );
     const result = await query(
-      `UPDATE orders SET status = 'accepted', updated_at = now()
-       WHERE id = $1 RETURNING *`,
+      `SELECT o.*, u.name AS retailer_name, u.email AS retailer_email,
+              u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state
+       FROM orders o JOIN users u ON u.id = o.retailer_id WHERE o.id = $1`,
       [id]
     );
     res.json(result.rows[0]);
@@ -161,9 +177,14 @@ const rejectOrder = async (req, res, next) => {
       return res.status(400).json({ error: 'Only pending orders can be rejected' });
     }
 
+    await query(
+      `UPDATE orders SET status = 'rejected', updated_at = now() WHERE id = $1`,
+      [id]
+    );
     const result = await query(
-      `UPDATE orders SET status = 'rejected', updated_at = now()
-       WHERE id = $1 RETURNING *`,
+      `SELECT o.*, u.name AS retailer_name, u.email AS retailer_email,
+              u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state
+       FROM orders o JOIN users u ON u.id = o.retailer_id WHERE o.id = $1`,
       [id]
     );
     res.json(result.rows[0]);
