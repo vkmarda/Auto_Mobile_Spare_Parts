@@ -1,0 +1,19 @@
+# Dependencies
+backend/node_modules/
+frontend/node_modules/
+
+# Environment files — never commit real env files
+backend/.env
+backend/.env.e1
+backend/.env.e3
+frontend/.env
+frontend/.env.e1
+frontend/.env.e3
+frontend/.env.local
+
+# Build output
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
