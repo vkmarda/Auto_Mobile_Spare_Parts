@@ -2,28 +2,71 @@ const { query } = require('../config/db');
 
 const getAllProducts = async (req, res, next) => {
   try {
+    const { category_id, vendor_id, q, model_id } = req.query;
+    const role = req.user?.role;
+    const userId = req.user?.id;
+
+    const conditions = [];
+    const values = [];
+    let idx = 1;
+
+    if (role === 'vendor') {
+      // Vendor sees only their own products
+      conditions.push(`p.vendor_id = $${idx++}`);
+      values.push(userId);
+    } else {
+      // Retailers and public see only approved vendors' products
+      conditions.push(`v.is_approved = true`);
+    }
+
+    if (model_id) {
+      conditions.push(`(p.model_id = $${idx++} OR p.model_id IS NULL)`);
+      values.push(model_id);
+    }
+
+    if (category_id) {
+      conditions.push(`p.category_id = $${idx++}`);
+      values.push(category_id);
+    }
+
+    if (vendor_id) {
+      conditions.push(`p.vendor_id = $${idx++}`);
+      values.push(vendor_id);
+    }
+
+    if (q) {
+      conditions.push(`(p.name ILIKE $${idx} OR p.sku ILIKE $${idx})`);
+      values.push(`%${q}%`);
+      idx++;
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
     const result = await query(
-      'SELECT * FROM products ORDER BY name ASC',
-      []
+      `SELECT p.*, c.name AS category_name, v.name AS vendor_name
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       LEFT JOIN users v ON v.id = p.vendor_id
+       ${where}
+       ORDER BY p.name ASC`,
+      values
     );
     res.json(result.rows);
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
 const createProduct = async (req, res, next) => {
   try {
-    const { name, sku, description, unit_price, stock } = req.body;
+    const { name, sku, description, unit_price, stock, category_id } = req.body;
     if (!name || !sku || unit_price === undefined) {
       return res.status(400).json({ error: 'name, sku, and unit_price are required' });
     }
 
     const result = await query(
-      `INSERT INTO products (name, sku, description, unit_price, stock)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO products (name, sku, description, unit_price, stock, vendor_id, category_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, sku, description || null, unit_price, stock ?? 0]
+      [name, sku, description || null, unit_price, stock ?? 0, req.user.id, category_id || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -34,7 +77,7 @@ const createProduct = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, sku, description, unit_price, stock } = req.body;
+    const { name, sku, description, unit_price, stock, category_id } = req.body;
 
     const fields = [];
     const values = [];
@@ -45,19 +88,20 @@ const updateProduct = async (req, res, next) => {
     if (description !== undefined) { fields.push(`description = $${idx++}`); values.push(description); }
     if (unit_price !== undefined)  { fields.push(`unit_price = $${idx++}`);  values.push(unit_price); }
     if (stock !== undefined)       { fields.push(`stock = $${idx++}`);       values.push(stock); }
+    if (category_id !== undefined) { fields.push(`category_id = $${idx++}`); values.push(category_id); }
 
     if (fields.length === 0) {
       return res.status(400).json({ error: 'No fields provided to update' });
     }
 
-    values.push(id);
+    values.push(id, req.user.id);
     const result = await query(
-      `UPDATE products SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      `UPDATE products SET ${fields.join(', ')} WHERE id = $${idx} AND vendor_id = $${idx + 1} RETURNING *`,
       values
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found or access denied' });
     }
     res.json(result.rows[0]);
   } catch (err) {

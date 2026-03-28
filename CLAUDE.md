@@ -6,7 +6,7 @@
 
 
 
-B2B order platform connecting 10 automobile spare parts retailers with 1 vendor.
+B2B order platform connecting bike and scooter spare parts retailers with vendors.
 
 
 

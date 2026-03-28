@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../api/auth.api';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,7 +18,9 @@ export default function Login() {
     try {
       const data = await login(email, password);
       saveAuth(data.token, data.user);
-      navigate(data.user.role === 'vendor' ? '/vendor' : '/products');
+      if (data.user.role === 'vendor') navigate('/vendor');
+      else if (data.user.role === 'admin') navigate('/admin');
+      else navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
     } finally {
@@ -31,7 +33,7 @@ export default function Login() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-sm p-8">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl">🔧</span>
-          <h1 className="text-xl font-bold text-blue-600">Parts Order</h1>
+          <h1 className="text-xl font-bold text-blue-600">Purzaa</h1>
         </div>
         <p className="text-sm text-gray-500 mb-7">Sign in to your account</p>
 
@@ -60,6 +62,11 @@ export default function Login() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        <p className="text-center text-sm text-gray-500 mt-5">
+          New to Parts Order?{' '}
+          <Link to="/signup" className="text-blue-600 hover:underline font-medium">Create account</Link>
+        </p>
       </div>
     </div>
   );

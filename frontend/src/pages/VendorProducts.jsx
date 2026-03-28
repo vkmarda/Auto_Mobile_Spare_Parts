@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react';
 import { getProducts, createProduct, updateProduct } from '../api/products.api';
 
-function Modal({ product, onClose, onSave }) {
+function StockBadge({ stock }) {
+  if (stock === 0)   return <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded-full">Out of Stock</span>;
+  if (stock < 10)    return <span className="flex items-center gap-1 text-xs text-red-600"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Critical</span>;
+  if (stock <= 50)   return <span className="flex items-center gap-1 text-xs text-yellow-600"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />Low Stock</span>;
+  return <span className="flex items-center gap-1 text-xs text-green-600"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />In Stock</span>;
+}
+
+function Modal({ product, onClose, onSave, allProducts }) {
   const [form, setForm] = useState({
-    name: product?.name || '',
-    sku: product?.sku || '',
+    name:        product?.name        || '',
+    sku:         product?.sku         || '',
     description: product?.description || '',
-    unit_price: product?.unit_price || '',
-    stock: product?.stock ?? 0,
+    unit_price:  product?.unit_price  || '',
+    stock:       product?.stock       ?? 0,
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -20,6 +27,14 @@ function Modal({ product, onClose, onSave }) {
       setError('Name, SKU and Unit Price are required');
       return;
     }
+    // Client-side SKU uniqueness check
+    const skuTaken = allProducts.some(
+      (p) => p.sku.toLowerCase() === form.sku.trim().toLowerCase() && p.id !== product?.id
+    );
+    if (skuTaken) {
+      setError('This SKU is already in use by another product');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -27,7 +42,10 @@ function Modal({ product, onClose, onSave }) {
       product ? await updateProduct(product.id, data) : await createProduct(data);
       onSave();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save product');
+      const msg = err.response?.data?.error || '';
+      setError(msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')
+        ? 'This SKU is already in use by another product'
+        : msg || 'Failed to save product');
     } finally {
       setLoading(false);
     }
@@ -54,14 +72,33 @@ function Modal({ product, onClose, onSave }) {
           {field('SKU', 'sku', 'text', true)}
           {field('Description', 'description')}
           {field('Unit Price (₹)', 'unit_price', 'number', true)}
-          {field('Stock', 'stock', 'number')}
+
+          {/* Stock stepper */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Stock</label>
+            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden w-fit">
+              <button type="button"
+                onClick={() => set('stock', Math.max(0, parseInt(form.stock || 0) - 1))}
+                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg font-medium">
+                −
+              </button>
+              <span className="w-14 text-center text-sm font-semibold text-gray-900">{form.stock}</span>
+              <button type="button"
+                onClick={() => set('stock', parseInt(form.stock || 0) + 1)}
+                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg font-medium">
+                +
+              </button>
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold">
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {loading ? 'Saving…' : 'Save Product'}
             </button>
           </div>
@@ -82,13 +119,15 @@ export default function VendorProducts() {
   const handleSave = () => { setModal(null); refresh(); };
 
   if (loading) return (
-    <div className="flex items-center justify-center p-16">
-      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-3">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="bg-gray-100 rounded-xl h-12 animate-pulse" />
+      ))}
     </div>
   );
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Products</h1>
@@ -100,39 +139,50 @@ export default function VendorProducts() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              {['Name','SKU','Price','Stock',''].map((h) => (
-                <th key={h} className={`px-4 py-3 text-gray-600 font-medium text-left`}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                <td className="px-4 py-3 text-gray-500">{p.sku}</td>
-                <td className="px-4 py-3">₹{parseFloat(p.unit_price).toFixed(2)}</td>
-                <td className="px-4 py-3">
-                  <span className={p.stock < 10 ? 'text-red-500 font-medium' : 'text-gray-700'}>{p.stock}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => setModal(p)}
-                    className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
-                </td>
+      {products.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
+          <p className="text-3xl mb-2">📦</p>
+          <p className="text-sm font-medium text-gray-500">No products yet. Add your first product.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[480px]">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                {['Name', 'SKU', 'Price', 'Stock', 'Status', ''].map((h) => (
+                  <th key={h} className="px-4 py-3 text-gray-600 font-medium text-left">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
+                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.sku}</td>
+                  <td className="px-4 py-3">
+                    ₹{parseFloat(p.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-700">{p.stock}</td>
+                  <td className="px-4 py-3"><StockBadge stock={p.stock} /></td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => setModal(p)}
+                      className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        </div>
+      )}
 
       {modal && (
         <Modal
           product={modal === 'add' ? null : modal}
           onClose={() => setModal(null)}
           onSave={handleSave}
+          allProducts={products}
         />
       )}
     </div>

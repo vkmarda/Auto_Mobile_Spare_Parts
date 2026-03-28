@@ -23,3 +23,9 @@ export const getSalesChart = (days = 7) =>
 
 export const getProductStats = (days = 7) =>
   client.get(`/vendor/product-stats?days=${days}`).then((r) => r.data);
+
+export const dispatchOrder = (id) =>
+  client.post(`/orders/${id}/dispatch`).then((r) => r.data);
+
+export const deliverOrder = (id) =>
+  client.post(`/orders/${id}/deliver`).then((r) => r.data);

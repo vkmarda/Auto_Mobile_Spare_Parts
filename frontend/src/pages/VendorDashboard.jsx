@@ -118,8 +118,10 @@ export default function VendorDashboard() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center p-16">
-      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    <div className="px-4 sm:px-6 py-8 max-w-7xl mx-auto space-y-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />
+      ))}
     </div>
   );
 
@@ -144,7 +146,7 @@ export default function VendorDashboard() {
   const hasBarData      = top5byQty.length > 0;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -186,11 +188,11 @@ export default function VendorDashboard() {
       </div>
 
       {/* SECTION 2 — Pie + Bar side by side */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex gap-6" style={{ minHeight: 300 }}>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row gap-6">
 
-          {/* Left: Pie — 45% */}
-          <div style={{ width: '45%' }}>
+          {/* Left: Pie */}
+          <div className="w-full sm:w-[45%]">
             <p className="text-sm font-semibold text-gray-700 mb-3">Sales by Product</p>
             {chartsLoading ? <div className="h-[260px]"><Spinner /></div>
               : !hasPieData ? (
@@ -236,10 +238,10 @@ export default function VendorDashboard() {
           </div>
 
           {/* Divider */}
-          <div className="w-px bg-gray-100 self-stretch" />
+          <div className="hidden sm:block w-px bg-gray-100 self-stretch" />
 
-          {/* Right: Horizontal Bar — 55% */}
-          <div style={{ width: '55%' }}>
+          {/* Right: Horizontal Bar */}
+          <div className="w-full sm:w-[55%]">
             <p className="text-sm font-semibold text-gray-700 mb-3">Top Products by Quantity</p>
             {chartsLoading ? <div className="h-[260px]"><Spinner /></div>
               : !hasBarData ? (
@@ -277,7 +279,7 @@ export default function VendorDashboard() {
       </div>
 
       {/* SECTION 3 — Daily Sales Area Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-semibold text-gray-700">Daily Sales</p>
           <p className="text-xs text-gray-400">Last {days} days</p>
@@ -326,10 +328,11 @@ export default function VendorDashboard() {
           <p className="text-sm text-gray-400">No pending demand.</p>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[520px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Product', 'SKU', 'Unit Price', 'Pending Qty'].map((h, i) => (
+                  {['Product', 'SKU', 'Unit Price', 'Pending Qty', 'Pending Value'].map((h, i) => (
                     <th key={h} className={`px-4 py-3 text-gray-600 font-medium ${i > 1 ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
@@ -339,12 +342,30 @@ export default function VendorDashboard() {
                   <tr key={r.id} className={`border-b border-gray-100 last:border-0 ${parseInt(r.total_quantity_pending) > 10 ? 'bg-yellow-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
                     <td className="px-4 py-3 text-gray-500">{r.sku}</td>
-                    <td className="px-4 py-3 text-right">₹{parseFloat(r.unit_price).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right">₹{parseFloat(r.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="px-4 py-3 text-right font-bold text-gray-900">{r.total_quantity_pending}</td>
+                    <td className="px-4 py-3 text-right font-bold text-blue-600">
+                      ₹{(parseFloat(r.unit_price) * parseInt(r.total_quantity_pending)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 border-t border-gray-200">
+                  <td className="px-4 py-3 font-bold text-gray-900">Total</td>
+                  <td className="px-4 py-3" />
+                  <td className="px-4 py-3" />
+                  <td className="px-4 py-3 text-right font-bold text-gray-900">
+                    {demand.reduce((s, r) => s + parseInt(r.total_quantity_pending), 0)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-blue-700">
+                    ₹{demand.reduce((s, r) => s + parseFloat(r.unit_price) * parseInt(r.total_quantity_pending), 0)
+                      .toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
+            </div>
           </div>
         )}
       </div>
@@ -357,12 +378,12 @@ export default function VendorDashboard() {
             const active = tab === card.key;
             return (
               <button key={card.key} onClick={() => { setTab(card.key); clearSel(); }}
-                className={`text-left rounded-xl border-l-4 px-4 py-4 cursor-pointer transition-all shadow-sm
+                className={`text-left rounded-xl border-l-4 px-4 py-3 cursor-pointer transition-all shadow-sm
                   ${card.border}
                   ${active ? `${card.activeBg} ring-2 ${card.ring}` : `${card.bg} hover:${card.activeBg}`}
                 `}>
-                <p className={`text-3xl font-bold ${card.text}`}>{counts[card.key]}</p>
-                <p className={`text-sm font-medium mt-1 ${card.text}`}>{card.label}</p>
+                <p className={`text-2xl font-bold ${card.text}`}>{counts[card.key]}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{card.label}</p>
               </button>
             );
           })}
@@ -371,7 +392,7 @@ export default function VendorDashboard() {
 
       {/* All Orders */}
       <div ref={ordersRef}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 className="text-base font-bold text-gray-900">
             All Orders <span className="text-gray-400 font-normal">({filtered.length})</span>
           </h2>
@@ -398,9 +419,9 @@ export default function VendorDashboard() {
           <p className="text-sm text-gray-400 py-4">{tab === 'all' ? 'No orders yet.' : `No ${tab} orders.`}</p>
         ) : (
           <div className="space-y-1.5">
-            <div className="px-4 py-1.5 grid gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide"
+            <div className="hidden md:grid px-4 py-1.5 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide"
               style={{ gridTemplateColumns: COLS }}>
-              <div /><span>Order ID</span><span>Phone</span><span>Retailer</span>
+              <div /><span>Order</span><span>Phone</span><span>Retailer</span>
               <span>Date</span><span>Items</span><span>Location</span>
               <span className="text-right">Amount</span><span>Status</span><span />
             </div>
@@ -424,7 +445,8 @@ export default function VendorDashboard() {
           <p className="text-sm text-gray-400">No orders in this period.</p>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[420px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {['Rank', 'Retailer Name', 'Location', 'Orders', 'Total Value'].map((h, i) => (
@@ -446,6 +468,7 @@ export default function VendorDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

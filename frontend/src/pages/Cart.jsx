@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useOrderFlow } from '../context/OrderFlowContext';
 import { placeOrder } from '../api/orders.api';
 
 export default function Cart() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
-  const [notes, setNotes]   = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
+  const { vehicleType, brand, model } = useOrderFlow();
+  const [notes, setNotes]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
   const navigate = useNavigate();
+
+  const vehicleLabel = [vehicleType?.name, brand?.name, model?.name].filter(Boolean).join(' › ');
 
   const total = cart.reduce((s, i) => s + i.quantity * parseFloat(i.unit_price), 0);
 
@@ -16,15 +21,45 @@ export default function Cart() {
     setError('');
     setLoading(true);
     try {
-      await placeOrder({ items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })), notes });
+      const result = await placeOrder({ items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })), notes });
       clearCart();
-      navigate('/orders');
+      setOrderNumber(result.order_number);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to place order');
     } finally {
       setLoading(false);
     }
   };
+
+  if (orderNumber) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-sm w-full">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">✅</span>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Order Placed!</h2>
+          <p className="text-sm text-gray-500 mb-5">Order <span className="font-mono font-bold text-gray-800">{orderNumber}</span></p>
+          <div className="space-y-3 text-left mb-6">
+            {[
+              { icon: '✅', label: 'Order received by supplier' },
+              { icon: '⏳', label: 'Supplier will confirm shortly' },
+              { icon: '📦', label: 'Parts will be ready for pickup' },
+            ].map(({ icon, label }) => (
+              <div key={label} className="flex items-center gap-3 text-sm text-gray-600">
+                <span className="text-base">{icon}</span>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => navigate('/orders')}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-sm">
+            Track My Order
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (cart.length === 0) {
     return (
@@ -40,39 +75,49 @@ export default function Cart() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-5xl mx-auto">
+      {vehicleLabel && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-2">
+          <span className="text-base">🏍️</span>
+          <p className="text-sm text-blue-700 font-medium">Parts for: <span className="font-bold">{vehicleLabel}</span></p>
+        </div>
+      )}
+      <h1 className="text-xl font-bold text-gray-900 mb-5">
         Your Cart <span className="text-gray-400 font-normal text-base">({cart.length} item{cart.length > 1 ? 's' : ''})</span>
       </h1>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-5">
         {/* Items list */}
         <div className="flex-1 space-y-3">
           {cart.map((item) => (
-            <div key={item.product_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{item.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku} · ₹{parseFloat(item.unit_price).toFixed(2)} each</p>
+            <div key={item.product_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">₹{parseFloat(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })} each</p>
+                </div>
+                <button onClick={() => removeFromCart(item.product_id)}
+                  className="text-red-400 hover:text-red-600 text-base leading-none flex-shrink-0 mt-0.5" title="Remove">✕</button>
               </div>
-              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                <button onClick={() => item.quantity > 1 && updateQuantity(item.product_id, item.quantity - 1)}
-                  className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg">−</button>
-                <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
-                <button onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                  className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg">+</button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                  <button onClick={() => item.quantity > 1 && updateQuantity(item.product_id, item.quantity - 1)}
+                    className="w-11 h-11 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl">−</button>
+                  <span className="w-9 text-center text-sm font-semibold">{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                    className="w-11 h-11 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl">+</button>
+                </div>
+                <span className="font-bold text-gray-900 text-sm">
+                  ₹{(item.quantity * parseFloat(item.unit_price)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
               </div>
-              <span className="w-20 text-right font-bold text-gray-900 text-sm">
-                ₹{(item.quantity * parseFloat(item.unit_price)).toFixed(2)}
-              </span>
-              <button onClick={() => removeFromCart(item.product_id)}
-                className="text-red-400 hover:text-red-600 text-lg leading-none" title="Remove">✕</button>
             </div>
           ))}
         </div>
 
         {/* Summary card */}
         <div className="lg:w-72 flex-shrink-0">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4 sticky top-20">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 space-y-4 lg:sticky lg:top-20">
             <h2 className="font-bold text-gray-900">Order Summary</h2>
             <div className="space-y-1.5 text-sm text-gray-600">
               {cart.map((i) => (
@@ -91,7 +136,7 @@ export default function Cart() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             {error && <p className="text-red-500 text-xs">{error}</p>}
             <button onClick={handlePlace} disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {loading ? 'Placing…' : 'Place Order'}
             </button>

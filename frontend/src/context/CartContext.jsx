@@ -17,7 +17,15 @@ export function CartProvider({ children }) {
       const existing = prev.find((i) => i.product_id === product.id);
       const updated = existing
         ? prev.map((i) => i.product_id === product.id ? { ...i, quantity: i.quantity + quantity } : i)
-        : [...prev, { product_id: product.id, name: product.name, sku: product.sku, unit_price: product.unit_price, quantity }];
+        : [...prev, {
+            product_id:  product.id,
+            name:        product.name,
+            sku:         product.sku,
+            unit_price:  product.unit_price,
+            vendor_id:   product.vendor_id   || null,
+            vendor_name: product.vendor_name || null,
+            quantity,
+          }];
       localStorage.setItem('cart', JSON.stringify(updated));
       return updated;
     });
