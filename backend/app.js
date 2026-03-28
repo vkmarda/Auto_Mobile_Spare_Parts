@@ -22,6 +22,14 @@ const corsOptions = {
 };
 
 app.options('*', cors(corsOptions));
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+  });
+});
 app.use(cors(corsOptions));
 app.use(express.json());
 

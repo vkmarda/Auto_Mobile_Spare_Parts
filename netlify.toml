@@ -1,0 +1,13 @@
+[build]
+  base = "frontend"
+  publish = "frontend/dist"
+  command = "npm install && npm run build"
+
+[build.environment]
+  VITE_ENV = "e3"
+  # Set VITE_API_URL in Netlify site settings to your backend URL, e.g. https://<your-backend>.onrender.com/api/v1
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
