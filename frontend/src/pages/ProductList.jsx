@@ -26,8 +26,6 @@ export default function ProductList() {
 
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
   const [selectedVendor, setSelectedVendor] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -43,15 +41,11 @@ export default function ProductList() {
   const filtered = products.filter((p) => {
     const q = search.toLowerCase();
     const matchSearch = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-    const price = parseFloat(p.unit_price);
-    const matchMin = !minPrice || price >= parseFloat(minPrice);
-    const matchMax = !maxPrice || price <= parseFloat(maxPrice);
     const matchVendor = !selectedVendor || p.vendor_id === selectedVendor;
-    return matchSearch && matchMin && matchMax && matchVendor;
+    return matchSearch && matchVendor;
   });
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
-  const cartTotal = cart.reduce((s, i) => s + i.quantity * parseFloat(i.unit_price), 0);
   const breadcrumb = [vehicleType?.name, brand?.name, model?.name, category?.name].filter(Boolean);
 
   return (
@@ -81,12 +75,6 @@ export default function ProductList() {
             <input value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or SKU…"
               className="flex-1 min-w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <input type="number" value={minPrice} onChange={(e) => setMinPrice(e.target.value)}
-              placeholder="Min ₹"
-              className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <input type="number" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder="Max ₹"
-              className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             {vendorOptions.length > 1 && (
               <select value={selectedVendor} onChange={(e) => setSelectedVendor(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
@@ -136,7 +124,7 @@ export default function ProductList() {
             {cartCount > 0 ? (
               <>
                 <span className="bg-white text-blue-600 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center">{cartCount}</span>
-                View Cart · ₹{cartTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                View Cart · {cartCount} item{cartCount !== 1 ? 's' : ''}
               </>
             ) : 'View Cart'}
           </button>

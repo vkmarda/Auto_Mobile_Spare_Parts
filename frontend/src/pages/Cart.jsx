@@ -15,7 +15,7 @@ export default function Cart() {
 
   const vehicleLabel = [vehicleType?.name, brand?.name, model?.name].filter(Boolean).join(' › ');
 
-  const total = cart.reduce((s, i) => s + i.quantity * parseFloat(i.unit_price), 0);
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
 
   const handlePlace = async () => {
     setError('');
@@ -94,7 +94,6 @@ export default function Cart() {
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">₹{parseFloat(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })} each</p>
                 </div>
                 <button onClick={() => removeFromCart(item.product_id)}
                   className="text-red-400 hover:text-red-600 text-base leading-none flex-shrink-0 mt-0.5" title="Remove">✕</button>
@@ -107,9 +106,6 @@ export default function Cart() {
                   <button onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
                     className="w-11 h-11 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl">+</button>
                 </div>
-                <span className="font-bold text-gray-900 text-sm">
-                  ₹{(item.quantity * parseFloat(item.unit_price)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
               </div>
             </div>
           ))}
@@ -122,14 +118,14 @@ export default function Cart() {
             <div className="space-y-1.5 text-sm text-gray-600">
               {cart.map((i) => (
                 <div key={i.product_id} className="flex justify-between">
-                  <span className="truncate mr-2">{i.name} ×{i.quantity}</span>
-                  <span className="flex-shrink-0">₹{(i.quantity * parseFloat(i.unit_price)).toFixed(2)}</span>
+                  <span className="truncate mr-2">{i.name}</span>
+                  <span className="flex-shrink-0 font-medium">×{i.quantity}</span>
                 </div>
               ))}
             </div>
             <div className="border-t border-gray-100 pt-3 flex justify-between font-bold text-gray-900">
-              <span>Subtotal</span>
-              <span>₹{total.toFixed(2)}</span>
+              <span>Total Items</span>
+              <span>{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
             </div>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Order notes (optional)" rows={2}

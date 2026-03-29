@@ -168,7 +168,6 @@ function OrderCard({ order }) {
           <span className="font-medium text-gray-700">{order.item_count} item{order.item_count != 1 ? 's' : ''}</span>
           {preview && <span className="text-gray-400"> · {preview}</span>}
         </p>
-        <span className="text-base font-bold text-gray-900 shrink-0">₹{fmt(order.total_amount)}</span>
       </div>
 
       {/* Timeline row */}
@@ -208,9 +207,7 @@ function OrderCard({ order }) {
                     <tr className="text-xs uppercase tracking-wide text-gray-400 bg-gray-100 rounded">
                       <th className="text-left px-2 py-2 rounded-l-lg">Product</th>
                       <th className="text-left px-2 py-2 hidden sm:table-cell">SKU</th>
-                      <th className="text-right px-2 py-2">Qty</th>
-                      <th className="text-right px-2 py-2 hidden sm:table-cell">Unit Price</th>
-                      <th className="text-right px-2 py-2 rounded-r-lg">Total</th>
+                      <th className="text-right px-2 py-2 rounded-r-lg">Qty</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -219,24 +216,15 @@ function OrderCard({ order }) {
                         <td className="py-2 px-2 text-gray-800">{item.product_name}</td>
                         <td className="py-2 px-2 text-gray-500 text-xs hidden sm:table-cell">{item.sku}</td>
                         <td className="py-2 px-2 text-right">{item.quantity}</td>
-                        <td className="py-2 px-2 text-right text-gray-600 hidden sm:table-cell">₹{fmt(item.unit_price)}</td>
-                        <td className="py-2 px-2 text-right font-medium">
-                          ₹{fmt(item.quantity * parseFloat(item.unit_price))}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              <div className="mt-3 flex items-start justify-between gap-3 flex-wrap">
-                {details.notes && (
-                  <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>
-                )}
-                <p className="text-sm font-bold text-gray-900 ml-auto">
-                  Order Total: ₹{fmt(details.total_amount)}
-                </p>
-              </div>
+              {details.notes && (
+                <p className="mt-3 text-xs text-gray-500 italic">📝 {details.notes}</p>
+              )}
 
               {order.status === 'rejected' && (
                 <div className="mt-3 flex justify-end">
@@ -273,9 +261,6 @@ export default function MyOrders() {
     rejected: orders.filter((o) => o.status === 'rejected').length,
   };
 
-  const totalSpent   = orders
-    .filter((o) => o.status === 'accepted')
-    .reduce((s, o) => s + parseFloat(o.total_amount), 0);
 
   const filtered = tab === 'all' ? orders : orders.filter((o) => o.status === tab);
   const empty    = EMPTY[tab];
@@ -307,9 +292,6 @@ export default function MyOrders() {
       <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
           Total Orders: <span className="font-bold text-gray-900">{orders.length}</span>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
-          Total Spent: <span className="font-bold text-green-600">₹{fmt(totalSpent)}</span>
         </div>
         <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
           Pending: <span className="font-bold text-yellow-600">{counts.pending} order{counts.pending !== 1 ? 's' : ''}</span>

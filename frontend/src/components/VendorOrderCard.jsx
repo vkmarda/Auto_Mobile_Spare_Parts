@@ -4,7 +4,7 @@ import StatusBadge from './StatusBadge';
 
 const BORDER = { pending: 'border-l-yellow-400', accepted: 'border-l-green-500', rejected: 'border-l-red-400' };
 
-const COLS = '20px 90px 110px 1fr 130px 55px 120px 85px 90px auto';
+const COLS = '20px 90px 110px 1fr 130px 55px 120px 90px auto';
 
 export default function VendorOrderCard({ order, onAccept, onReject, checkable, checked, onCheck }) {
   const [expanded, setExpanded] = useState(false);
@@ -32,8 +32,7 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
   const daysDiff = Math.floor((Date.now() - new Date(order.created_at)) / 86400000);
   const age      = daysDiff === 0 ? 'Today' : `${daysDiff}d ago`;
   const location = [order.retailer_city, order.retailer_state].filter(Boolean).join(', ');
-  const total    = details?.items?.reduce((s, i) => s + i.quantity * parseFloat(i.unit_price), 0);
-  const amt      = parseFloat(order.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const totalQty = details?.items?.reduce((s, i) => s + i.quantity, 0);
 
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
@@ -59,9 +58,8 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
             </p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-sm font-bold text-gray-900">₹{amt}</p>
             {order.retailer_mobile && (
-              <p className="text-xs text-gray-400 mt-0.5">{order.retailer_mobile}</p>
+              <p className="text-xs text-gray-400">{order.retailer_mobile}</p>
             )}
           </div>
         </div>
@@ -113,7 +111,6 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
 
         <span className="text-sm text-gray-500">{order.item_count} item{order.item_count != 1 ? 's' : ''}</span>
         <span className="text-xs text-gray-500 truncate">{location || '—'}</span>
-        <span className="text-sm font-bold text-gray-900 text-right">₹{amt}</span>
         <div><StatusBadge status={order.status} /></div>
 
         <div className="flex items-center gap-1.5 justify-end">
@@ -155,8 +152,6 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
                       <th className="text-left pb-2">Product</th>
                       <th className="text-left pb-2 hidden sm:table-cell">SKU</th>
                       <th className="text-right pb-2">Qty</th>
-                      <th className="text-right pb-2 hidden sm:table-cell">Unit Price</th>
-                      <th className="text-right pb-2">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -165,17 +160,14 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
                         <td className="py-1.5 text-gray-800">{item.product_name}</td>
                         <td className="py-1.5 text-gray-500 text-xs hidden sm:table-cell">{item.sku}</td>
                         <td className="py-1.5 text-right">{item.quantity}</td>
-                        <td className="py-1.5 text-right text-gray-600 hidden sm:table-cell">₹{parseFloat(item.unit_price).toFixed(2)}</td>
-                        <td className="py-1.5 text-right font-medium">₹{(item.quantity * parseFloat(item.unit_price)).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="flex justify-between items-center">
-                {details.notes && <p className="text-xs text-gray-500 italic">Note: {details.notes}</p>}
-                <p className="text-sm font-bold text-gray-900 ml-auto">Total: ₹{total.toFixed(2)}</p>
-              </div>
+              {details.notes && (
+                <p className="text-xs text-gray-500 italic">Note: {details.notes}</p>
+              )}
             </>
           )}
         </div>

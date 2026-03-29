@@ -22,13 +22,6 @@ const STATUS_CARDS = [
 const MEDALS  = ['🥇', '🥈', '🥉'];
 const COLORS  = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#6366f1'];
 
-function abbr(val) {
-  if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)}Cr`;
-  if (val >= 100000)   return `₹${(val / 100000).toFixed(1)}L`;
-  if (val >= 1000)     return `₹${(val / 1000).toFixed(0)}K`;
-  return `₹${val.toFixed(0)}`;
-}
-
 const Spinner = () => (
   <div className="flex items-center justify-center h-full">
     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -85,20 +78,13 @@ export default function VendorDashboard() {
   };
 
   const trendPct = (curr, prev) => (prev > 0 ? ((curr - prev) / prev) * 100 : null);
-  const salesTrend = stats ? trendPct(stats.total_sales, stats.prev_total_sales) : null;
   const qtyTrend   = stats ? trendPct(stats.total_quantity, stats.prev_total_quantity) : null;
   const partsTrend = stats ? trendPct(stats.unique_parts, stats.prev_unique_parts) : null;
 
-  const salesSpark = chartData.map((d) => d.total_sales);
   const qtySpark   = chartData.map((d) => d.total_qty);
 
   const decisionCount   = counts.accepted + counts.rejected;
   const fulfillmentRate = decisionCount > 0 ? Math.round((counts.accepted / decisionCount) * 100) : null;
-  const nonRejected     = orders.filter((o) => o.status !== 'rejected');
-  const avgOrderValue   = nonRejected.length > 0
-    ? nonRejected.reduce((s, o) => s + parseFloat(o.total_amount), 0) / nonRejected.length : 0;
-  const pendingValue    = orders.filter((o) => o.status === 'pending')
-    .reduce((s, o) => s + parseFloat(o.total_amount), 0);
 
   const lowStockProducts = products.filter((p) => p.stock < 10);
   const pendingOrders    = orders.filter((o) => o.status === 'pending');
@@ -138,10 +124,10 @@ export default function VendorDashboard() {
     },
   ].filter(Boolean);
 
-  const top5byQty = [...productStats].sort((a, b) => b.total_qty - a.total_qty).slice(0, 5)
+  const top5byQty = [...productStats].slice(0, 5)
     .map((p) => ({ ...p, label: p.name.length > 12 ? p.name.slice(0, 12) + '…' : p.name }));
 
-  const hasChartData    = chartData.some((d) => d.total_sales > 0);
+  const hasChartData    = chartData.some((d) => d.total_qty > 0);
   const hasPieData      = productStats.length > 0;
   const hasBarData      = top5byQty.length > 0;
 
@@ -172,10 +158,7 @@ export default function VendorDashboard() {
       )}
 
       {/* SECTION 1 — Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Sales"
-          value={stats ? abbr(parseFloat(stats.total_sales)) : '—'}
-          iconType="sales" trend={salesTrend} sparkData={salesSpark} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard title="Unique Parts"
           value={stats?.unique_parts ?? '—'}
           iconType="parts" trend={partsTrend} />
@@ -193,14 +176,14 @@ export default function VendorDashboard() {
 
           {/* Left: Pie */}
           <div className="w-full sm:w-[45%]">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Sales by Product</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">Orders by Product (qty)</p>
             {chartsLoading ? <div className="h-[260px]"><Spinner /></div>
               : !hasPieData ? (
                 <div className="flex items-center justify-center h-[260px] text-sm text-gray-400">No sales data</div>
               ) : (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={productStats} dataKey="total_sales" nameKey="name"
+                    <Pie data={productStats} dataKey="total_qty" nameKey="name"
                       cx="50%" cy="50%" outerRadius={100} paddingAngle={2}
                       outerRadius={75}
                       label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
@@ -225,7 +208,6 @@ export default function VendorDashboard() {
                         return (
                           <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs shadow-sm">
                             <p className="font-semibold text-gray-800 mb-1">{d.name}</p>
-                            <p className="text-gray-600">Sales: ₹{d.total_sales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                             <p className="text-gray-600">Qty: {d.total_qty} units</p>
                           </div>
                         );
@@ -281,38 +263,38 @@ export default function VendorDashboard() {
       {/* SECTION 3 — Daily Sales Area Chart */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-semibold text-gray-700">Daily Sales</p>
+          <p className="text-sm font-semibold text-gray-700">Daily Orders (qty)</p>
           <p className="text-xs text-gray-400">Last {days} days</p>
         </div>
         {chartsLoading ? <div className="h-[220px]"><Spinner /></div>
           : !hasChartData ? (
-            <div className="flex items-center justify-center h-[220px] text-sm text-gray-400">No sales in this period</div>
+            <div className="flex items-center justify-center h-[220px] text-sm text-gray-400">No orders in this period</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="qtyGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(v) => abbr(v)}
-                  tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={48} />
+                <YAxis allowDecimals={false}
+                  tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={32} />
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
                     return (
                       <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs shadow-sm">
                         <p className="font-semibold text-gray-700 mb-1">{label}</p>
-                        <p className="text-blue-600">₹{parseFloat(payload[0].value).toLocaleString('en-IN', { minimumFractionDigits: 2 })} sales</p>
+                        <p className="text-blue-600">{payload[0].value} units ordered</p>
                       </div>
                     );
                   }}
                 />
-                <Area type="monotone" dataKey="total_sales" stroke="#3b82f6" strokeWidth={2}
-                  fill="url(#salesGrad)" dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
+                <Area type="monotone" dataKey="total_qty" stroke="#3b82f6" strokeWidth={2}
+                  fill="url(#qtyGrad)" dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
                   activeDot={{ r: 5 }} />
               </AreaChart>
             </ResponsiveContainer>
@@ -329,10 +311,10 @@ export default function VendorDashboard() {
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[520px]">
+            <table className="w-full text-sm min-w-[320px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Product', 'SKU', 'Unit Price', 'Pending Qty', 'Pending Value'].map((h, i) => (
+                  {['Product', 'SKU', 'Pending Qty'].map((h, i) => (
                     <th key={h} className={`px-4 py-3 text-gray-600 font-medium ${i > 1 ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
@@ -342,11 +324,7 @@ export default function VendorDashboard() {
                   <tr key={r.id} className={`border-b border-gray-100 last:border-0 ${parseInt(r.total_quantity_pending) > 10 ? 'bg-yellow-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
                     <td className="px-4 py-3 text-gray-500">{r.sku}</td>
-                    <td className="px-4 py-3 text-right">₹{parseFloat(r.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="px-4 py-3 text-right font-bold text-gray-900">{r.total_quantity_pending}</td>
-                    <td className="px-4 py-3 text-right font-bold text-blue-600">
-                      ₹{(parseFloat(r.unit_price) * parseInt(r.total_quantity_pending)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -354,13 +332,8 @@ export default function VendorDashboard() {
                 <tr className="bg-gray-50 border-t border-gray-200">
                   <td className="px-4 py-3 font-bold text-gray-900">Total</td>
                   <td className="px-4 py-3" />
-                  <td className="px-4 py-3" />
                   <td className="px-4 py-3 text-right font-bold text-gray-900">
                     {demand.reduce((s, r) => s + parseInt(r.total_quantity_pending), 0)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-blue-700">
-                    ₹{demand.reduce((s, r) => s + parseFloat(r.unit_price) * parseInt(r.total_quantity_pending), 0)
-                      .toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               </tfoot>
@@ -423,7 +396,7 @@ export default function VendorDashboard() {
               style={{ gridTemplateColumns: COLS }}>
               <div /><span>Order</span><span>Phone</span><span>Retailer</span>
               <span>Date</span><span>Items</span><span>Location</span>
-              <span className="text-right">Amount</span><span>Status</span><span />
+              <span>Status</span><span />
             </div>
             {filtered.map((order) => (
               <VendorOrderCard key={order.id} order={order}
@@ -446,10 +419,10 @@ export default function VendorDashboard() {
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[420px]">
+            <table className="w-full text-sm min-w-[320px]">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Rank', 'Retailer Name', 'Location', 'Orders', 'Total Value'].map((h, i) => (
+                  {['Rank', 'Retailer Name', 'Location', 'Orders'].map((h, i) => (
                     <th key={h} className={`px-4 py-3 text-gray-600 font-medium ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
@@ -461,9 +434,6 @@ export default function VendorDashboard() {
                     <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
                     <td className="px-4 py-3 text-gray-500">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
                     <td className="px-4 py-3 text-right text-gray-600">{r.order_count}</td>
-                    <td className="px-4 py-3 text-right font-bold text-blue-600">
-                      ₹{r.total_value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
                   </tr>
                 ))}
               </tbody>

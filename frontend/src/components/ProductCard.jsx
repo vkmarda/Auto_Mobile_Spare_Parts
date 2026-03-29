@@ -50,10 +50,7 @@ export default function ProductCard({ product }) {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-blue-600 font-bold text-xl">
-              ₹{parseFloat(product.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
+          <div className="flex items-center justify-end">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stock.cls}`}>
               {stock.text}
             </span>

@@ -76,10 +76,7 @@ export default function VendorOrderDetail() {
         </div>
         <div className="text-right">
           <StatusBadge status={status} />
-          <p className="text-2xl font-bold text-gray-900 mt-2">
-            ₹{parseFloat(order.total_amount).toLocaleString('en-IN')}
-          </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 mt-2">
             {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
@@ -88,25 +85,17 @@ export default function VendorOrderDetail() {
       <Timeline status={status} />
 
       <div className="bg-white rounded-xl border border-gray-200 mb-6 overflow-hidden">
-        <div className="grid grid-cols-[1fr_56px_80px_90px] text-xs font-semibold text-gray-400 px-4 py-2.5 border-b border-gray-100 uppercase tracking-wide">
+        <div className="grid grid-cols-[1fr_56px] text-xs font-semibold text-gray-400 px-4 py-2.5 border-b border-gray-100 uppercase tracking-wide">
           <span>Product</span>
           <span className="text-center">Qty</span>
-          <span className="text-right">Unit</span>
-          <span className="text-right">Total</span>
         </div>
         {(order.items || []).map(item => (
-          <div key={item.id} className="grid grid-cols-[1fr_56px_80px_90px] px-4 py-3 border-b border-gray-50 last:border-0">
+          <div key={item.id} className="grid grid-cols-[1fr_56px] px-4 py-3 border-b border-gray-50 last:border-0">
             <div>
               <p className="text-sm text-gray-900">{item.product_name}</p>
               <p className="text-xs text-gray-400 font-mono">{item.sku}</p>
             </div>
             <span className="text-sm text-gray-700 text-center self-center">{item.quantity}</span>
-            <span className="text-sm text-gray-700 text-right self-center">
-              ₹{parseFloat(item.unit_price).toLocaleString('en-IN')}
-            </span>
-            <span className="text-sm font-semibold text-gray-900 text-right self-center">
-              ₹{(item.quantity * parseFloat(item.unit_price)).toLocaleString('en-IN')}
-            </span>
           </div>
         ))}
       </div>

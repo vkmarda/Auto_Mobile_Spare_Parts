@@ -38,7 +38,6 @@ function OrderRow({ o, acting, onAccept, onReject }) {
           <p className="text-sm font-bold text-gray-900 truncate">{o.retailer_name}</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-base font-bold text-gray-900">₹{fmt(o.total_amount)}</span>
           <span className="text-xs text-gray-400">{ageLabel}</span>
         </div>
       </div>
@@ -88,8 +87,8 @@ function OrderRow({ o, acting, onAccept, onReject }) {
                     <th className="text-left pb-1.5 font-medium">Product</th>
                     <th className="text-left pb-1.5 font-medium hidden sm:table-cell">SKU</th>
                     <th className="text-right pb-1.5 font-medium">Qty</th>
-                    <th className="text-right pb-1.5 font-medium hidden sm:table-cell">Unit Price</th>
-                    <th className="text-right pb-1.5 font-medium">Total</th>
+                    {/* <th className="text-right pb-1.5 font-medium hidden sm:table-cell">Unit Price</th>
+                    <th className="text-right pb-1.5 font-medium">Total</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -98,10 +97,10 @@ function OrderRow({ o, acting, onAccept, onReject }) {
                       <td className="py-1.5 text-gray-800">{item.product_name}</td>
                       <td className="py-1.5 text-gray-500 hidden sm:table-cell">{item.sku}</td>
                       <td className="py-1.5 text-right">{item.quantity}</td>
-                      <td className="py-1.5 text-right text-gray-600 hidden sm:table-cell">₹{fmt(item.unit_price)}</td>
-                      <td className="py-1.5 text-right font-medium">
+                      {/* {/* <td className="py-1.5 text-right text-gray-600 hidden sm:table-cell">₹{fmt(item.unit_price)}</td> */}
+                      {/* <td className="py-1.5 text-right font-medium">
                         ₹{fmt(item.quantity * parseFloat(item.unit_price))}
-                      </td>
+                      </td> */}
                     </tr>
                   ))}
                 </tbody>
@@ -109,7 +108,7 @@ function OrderRow({ o, acting, onAccept, onReject }) {
               </div>
               <div className="flex justify-between items-center pt-1">
                 {details.notes && <p className="text-xs text-gray-500 italic">Note: {details.notes}</p>}
-                <p className="text-sm font-bold text-gray-900 ml-auto">Total: ₹{fmt(details.total_amount)}</p>
+                {/* <p className="text-sm font-bold text-gray-900 ml-auto">Total: ₹{fmt(details.total_amount)}</p> */}
               </div>
             </>
           )}

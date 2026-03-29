@@ -24,7 +24,6 @@ export default function OrderCard({ order, showRetailerName, onAccept, onReject,
     }
   };
 
-  const total = details?.items?.reduce((s, i) => s + i.quantity * parseFloat(i.unit_price), 0);
   const fmt   = (v) => parseFloat(v).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
   return (
@@ -77,8 +76,8 @@ export default function OrderCard({ order, showRetailerName, onAccept, onReject,
                       <th className="text-left pb-2">Product</th>
                       <th className="text-left pb-2 hidden sm:table-cell">SKU</th>
                       <th className="text-right pb-2">Qty</th>
-                      <th className="text-right pb-2 hidden sm:table-cell">Unit Price</th>
-                      <th className="text-right pb-2">Total</th>
+                      {/* <th className="text-right pb-2 hidden sm:table-cell">Unit Price</th>
+                      <th className="text-right pb-2">Total</th> */}
                     </tr>
                   </thead>
                   <tbody>
@@ -87,8 +86,8 @@ export default function OrderCard({ order, showRetailerName, onAccept, onReject,
                         <td className="py-1.5 text-gray-800">{item.product_name}</td>
                         <td className="py-1.5 text-gray-500 text-xs hidden sm:table-cell">{item.sku}</td>
                         <td className="py-1.5 text-right">{item.quantity}</td>
-                        <td className="py-1.5 text-right text-gray-600 hidden sm:table-cell">₹{fmt(item.unit_price)}</td>
-                        <td className="py-1.5 text-right font-medium">₹{fmt(item.quantity * parseFloat(item.unit_price))}</td>
+                        {/* <td className="py-1.5 text-right text-gray-600 hidden sm:table-cell">₹{fmt(item.unit_price)}</td>
+                        <td className="py-1.5 text-right font-medium">₹{fmt(item.quantity * parseFloat(item.unit_price))}</td> */}
                       </tr>
                     ))}
                   </tbody>

@@ -21,7 +21,6 @@ export function CartProvider({ children }) {
             product_id:  product.id,
             name:        product.name,
             sku:         product.sku,
-            unit_price:  product.unit_price,
             vendor_id:   product.vendor_id   || null,
             vendor_name: product.vendor_name || null,
             quantity,

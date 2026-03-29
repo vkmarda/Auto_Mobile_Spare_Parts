@@ -13,7 +13,6 @@ function Modal({ product, onClose, onSave, allProducts }) {
     name:        product?.name        || '',
     sku:         product?.sku         || '',
     description: product?.description || '',
-    unit_price:  product?.unit_price  || '',
     stock:       product?.stock       ?? 0,
   });
   const [loading, setLoading] = useState(false);
@@ -23,8 +22,8 @@ function Modal({ product, onClose, onSave, allProducts }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.sku || !form.unit_price) {
-      setError('Name, SKU and Unit Price are required');
+    if (!form.name || !form.sku) {
+      setError('Name and SKU are required');
       return;
     }
     // Client-side SKU uniqueness check
@@ -38,7 +37,7 @@ function Modal({ product, onClose, onSave, allProducts }) {
     setLoading(true);
     setError('');
     try {
-      const data = { ...form, unit_price: parseFloat(form.unit_price), stock: parseInt(form.stock) };
+      const data = { ...form, stock: parseInt(form.stock) };
       product ? await updateProduct(product.id, data) : await createProduct(data);
       onSave();
     } catch (err) {
@@ -71,7 +70,6 @@ function Modal({ product, onClose, onSave, allProducts }) {
           {field('Name', 'name', 'text', true)}
           {field('SKU', 'sku', 'text', true)}
           {field('Description', 'description')}
-          {field('Unit Price (₹)', 'unit_price', 'number', true)}
 
           {/* Stock stepper */}
           <div>
@@ -150,7 +148,7 @@ export default function VendorProducts() {
           <table className="w-full text-sm min-w-[480px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Name', 'SKU', 'Price', 'Stock', 'Status', ''].map((h) => (
+                {['Name', 'SKU', 'Stock', 'Status', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-gray-600 font-medium text-left">{h}</th>
                 ))}
               </tr>
@@ -160,9 +158,6 @@ export default function VendorProducts() {
                 <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.sku}</td>
-                  <td className="px-4 py-3">
-                    ₹{parseFloat(p.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </td>
                   <td className="px-4 py-3 font-medium text-gray-700">{p.stock}</td>
                   <td className="px-4 py-3"><StockBadge stock={p.stock} /></td>
                   <td className="px-4 py-3">
