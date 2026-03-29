@@ -22,6 +22,8 @@ const corsOptions = {
 };
 
 app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
+app.use(express.json());
 
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -30,8 +32,6 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV,
   });
 });
-app.use(cors(corsOptions));
-app.use(express.json());
 
 app.use('/api/v1/auth',     authRoutes);
 app.use('/api/v1/products', productRoutes);
