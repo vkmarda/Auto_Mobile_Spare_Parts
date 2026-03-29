@@ -1,14 +1,5 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
-
-function NotFound() {
-  return (
-    <div className="flex flex-col items-center justify-center p-16 text-center">
-      <p className="text-5xl font-bold text-gray-300 mb-4">404</p>
-      <p className="text-lg text-gray-600 mb-6">Page not found</p>
-      <Link to="/" className="text-sm text-blue-600 hover:underline">← Back to home</Link>
-    </div>
-  );
-}
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
@@ -27,6 +18,16 @@ import BrandStep from './pages/order/BrandStep';
 import ModelStep from './pages/order/ModelStep';
 import CategoryStep from './pages/order/CategoryStep';
 
+function NotFound() {
+  return (
+    <div className="flex flex-col items-center justify-center p-16 text-center">
+      <p className="text-5xl font-bold text-gray-300 mb-4">404</p>
+      <p className="text-lg text-gray-600 mb-6">Page not found</p>
+      <Link to="/" className="text-sm text-blue-600 hover:underline">← Back to home</Link>
+    </div>
+  );
+}
+
 function RequireAuth({ children, role }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -36,6 +37,68 @@ function RequireAuth({ children, role }) {
 
 export default function App() {
   const { user } = useAuth();
+  const [warming, setWarming] = useState(true);
+
+  useEffect(() => {
+    const warmUp = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/health`,
+          { signal: AbortSignal.timeout(30000) }
+        );
+        if (res.ok) setWarming(false);
+      } catch (err) {
+        setWarming(false);
+      }
+    };
+
+    warmUp();
+
+    const interval = setInterval(() => {
+      fetch(`${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/health`).catch(() => {});
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (warming) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        background: '#f8f9fb',
+        gap: '16px',
+      }}>
+        <div style={{ fontSize: '40px' }}>🔧</div>
+        <div style={{ fontSize: '20px', fontWeight: '700', color: '#111827' }}>Purzaa</div>
+        <div style={{ fontSize: '14px', color: '#6b7280' }}>Starting up, please wait...</div>
+        <div style={{
+          width: '200px',
+          height: '4px',
+          background: '#e5e7eb',
+          borderRadius: '2px',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%',
+            background: '#1d4ed8',
+            borderRadius: '2px',
+            animation: 'loading 2s ease-in-out infinite',
+          }} />
+        </div>
+        <style>{`
+          @keyframes loading {
+            0% { width: 0% }
+            50% { width: 70% }
+            100% { width: 100% }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>
