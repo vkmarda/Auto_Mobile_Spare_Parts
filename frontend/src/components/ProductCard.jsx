@@ -50,21 +50,21 @@ export default function ProductCard({ product }) {
             )}
           </div>
 
-          <div className="flex items-center justify-end">
+          {/* <div className="flex items-center justify-end">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stock.cls}`}>
               {stock.text}
             </span>
-          </div>
+          </div> */}
 
-          <div className="flex items-center gap-2 mt-auto">
+           <div className="flex items-center gap-2 mt-auto">
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-              <button onClick={dec} disabled={product.stock === 0}
+              <button onClick={dec} 
                 className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl disabled:opacity-30">−</button>
               <span className="w-9 text-center text-sm font-semibold text-gray-900">{qty}</span>
-              <button onClick={inc} disabled={product.stock === 0 || qty >= product.stock}
+              <button onClick={inc} 
                 className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl disabled:opacity-30">+</button>
             </div>
-            <button onClick={handleAdd} disabled={product.stock === 0}
+            <button onClick={handleAdd} 
               className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors ${
                 added ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40'
               }`}>
