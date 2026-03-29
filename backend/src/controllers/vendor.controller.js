@@ -4,13 +4,13 @@ const getDemand = async (req, res, next) => {
   try {
     const vendor_id = req.user.id;
     const result = await query(
-      `SELECT p.id, p.name, p.sku, p.unit_price,
+      `SELECT p.id, p.name, p.sku,
               SUM(oi.quantity) AS total_quantity_pending
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        JOIN products p ON p.id = oi.product_id
        WHERE o.status = 'pending' AND o.vendor_id = $1
-       GROUP BY p.id, p.name, p.sku, p.unit_price
+       GROUP BY p.id, p.name, p.sku
        ORDER BY total_quantity_pending DESC`,
       [vendor_id]
     );
@@ -25,10 +25,8 @@ const getStats = async (req, res, next) => {
     const interval = `${days} days`;
     const prevInterval = `${days * 2} days`;
 
-    const [salesRes, qtyRes, partsRes, retailersRes, topRetailersRes,
-           prevSalesRes, prevQtyRes, prevPartsRes] = await Promise.all([
-      query(`SELECT COALESCE(SUM(total_amount),0) AS total_sales FROM orders
-             WHERE created_at >= now()-interval '${interval}' AND status!='rejected' AND vendor_id=$1`, [vendor_id]),
+    const [qtyRes, partsRes, retailersRes, topRetailersRes,
+           prevQtyRes, prevPartsRes] = await Promise.all([
       query(`SELECT COALESCE(SUM(oi.quantity),0) AS total_quantity FROM order_items oi
              JOIN orders o ON o.id=oi.order_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
@@ -37,13 +35,10 @@ const getStats = async (req, res, next) => {
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
       query(`SELECT COUNT(DISTINCT retailer_id) AS unique_retailers FROM orders
              WHERE created_at >= now()-interval '${interval}' AND status!='rejected' AND vendor_id=$1`, [vendor_id]),
-      query(`SELECT u.name, u.city, u.state, SUM(o.total_amount) AS total_value, COUNT(o.id) AS order_count
+      query(`SELECT u.name, u.city, u.state, COUNT(o.id) AS order_count
              FROM orders o JOIN users u ON u.id=o.retailer_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1
-             GROUP BY u.id,u.name,u.city,u.state ORDER BY total_value DESC LIMIT 5`, [vendor_id]),
-      query(`SELECT COALESCE(SUM(total_amount),0) AS total_sales FROM orders
-             WHERE created_at >= now()-interval '${prevInterval}' AND created_at < now()-interval '${interval}'
-             AND status!='rejected' AND vendor_id=$1`, [vendor_id]),
+             GROUP BY u.id,u.name,u.city,u.state ORDER BY order_count DESC LIMIT 5`, [vendor_id]),
       query(`SELECT COALESCE(SUM(oi.quantity),0) AS total_quantity FROM order_items oi
              JOIN orders o ON o.id=oi.order_id
              WHERE o.created_at >= now()-interval '${prevInterval}' AND o.created_at < now()-interval '${interval}'
@@ -58,12 +53,10 @@ const getStats = async (req, res, next) => {
     date_from.setDate(date_from.getDate() - days);
 
     res.json({
-      total_sales:         parseFloat(salesRes.rows[0].total_sales),
       total_quantity:      parseInt(qtyRes.rows[0].total_quantity),
       unique_parts:        parseInt(partsRes.rows[0].unique_parts),
       unique_retailers:    parseInt(retailersRes.rows[0].unique_retailers),
-      top_retailers:       topRetailersRes.rows.map((r) => ({ ...r, total_value: parseFloat(r.total_value), order_count: parseInt(r.order_count) })),
-      prev_total_sales:    parseFloat(prevSalesRes.rows[0].total_sales),
+      top_retailers:       topRetailersRes.rows.map((r) => ({ ...r, order_count: parseInt(r.order_count) })),
       prev_total_quantity: parseInt(prevQtyRes.rows[0].total_quantity),
       prev_unique_parts:   parseInt(prevPartsRes.rows[0].unique_parts),
       days,
@@ -105,7 +98,6 @@ const getSalesChart = async (req, res, next) => {
 
     const result = await query(
       `SELECT date_series.date::date AS date,
-              COALESCE(SUM(o.total_amount), 0) AS total_sales,
               COUNT(o.id) AS order_count,
               COALESCE(SUM(oi.quantity), 0) AS total_qty
        FROM generate_series(CURRENT_DATE-interval '${interval}', CURRENT_DATE, '1 day'::interval) AS date_series(date)
@@ -117,7 +109,6 @@ const getSalesChart = async (req, res, next) => {
 
     res.json(result.rows.map((r) => ({
       date:        new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-      total_sales: parseFloat(r.total_sales),
       order_count: parseInt(r.order_count),
       total_qty:   parseInt(r.total_qty),
     })));
@@ -132,8 +123,7 @@ const getProductStats = async (req, res, next) => {
 
     const result = await query(
       `SELECT p.id, p.name, p.sku,
-              COALESCE(SUM(oi.quantity), 0) AS total_qty,
-              COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_sales
+              COALESCE(SUM(oi.quantity), 0) AS total_qty
        FROM products p
        LEFT JOIN order_items oi ON oi.product_id = p.id
        LEFT JOIN orders o ON o.id = oi.order_id
@@ -142,13 +132,13 @@ const getProductStats = async (req, res, next) => {
          AND o.vendor_id = $1
        WHERE p.vendor_id = $1
        GROUP BY p.id, p.name, p.sku
-       ORDER BY total_sales DESC`,
+       ORDER BY total_qty DESC`,
       [vendor_id]
     );
 
     res.json(result.rows
-      .filter((r) => parseFloat(r.total_sales) > 0)
-      .map((r) => ({ id: r.id, name: r.name, sku: r.sku, total_qty: parseInt(r.total_qty), total_sales: parseFloat(r.total_sales) }))
+      .filter((r) => parseInt(r.total_qty) > 0)
+      .map((r) => ({ id: r.id, name: r.name, sku: r.sku, total_qty: parseInt(r.total_qty) }))
     );
   } catch (err) { next(err); }
 };

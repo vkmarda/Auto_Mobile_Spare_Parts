@@ -57,16 +57,16 @@ const getAllProducts = async (req, res, next) => {
 
 const createProduct = async (req, res, next) => {
   try {
-    const { name, sku, description, unit_price, stock, category_id } = req.body;
-    if (!name || !sku || unit_price === undefined) {
-      return res.status(400).json({ error: 'name, sku, and unit_price are required' });
+    const { name, sku, description, stock, category_id } = req.body;
+    if (!name || !sku) {
+      return res.status(400).json({ error: 'name and sku are required' });
     }
 
     const result = await query(
-      `INSERT INTO products (name, sku, description, unit_price, stock, vendor_id, category_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO products (name, sku, description, stock, vendor_id, category_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, sku, description || null, unit_price, stock ?? 0, req.user.id, category_id || null]
+      [name, sku, description || null, stock ?? 0, req.user.id, category_id || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -77,7 +77,7 @@ const createProduct = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, sku, description, unit_price, stock, category_id } = req.body;
+    const { name, sku, description, stock, category_id } = req.body;
 
     const fields = [];
     const values = [];
@@ -86,7 +86,6 @@ const updateProduct = async (req, res, next) => {
     if (name !== undefined)        { fields.push(`name = $${idx++}`);        values.push(name); }
     if (sku !== undefined)         { fields.push(`sku = $${idx++}`);         values.push(sku); }
     if (description !== undefined) { fields.push(`description = $${idx++}`); values.push(description); }
-    if (unit_price !== undefined)  { fields.push(`unit_price = $${idx++}`);  values.push(unit_price); }
     if (stock !== undefined)       { fields.push(`stock = $${idx++}`);       values.push(stock); }
     if (category_id !== undefined) { fields.push(`category_id = $${idx++}`); values.push(category_id); }
 

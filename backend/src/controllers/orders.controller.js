@@ -13,7 +13,7 @@ const placeOrder = async (req, res, next) => {
     const productIds = items.map((i) => i.product_id);
     const placeholders = productIds.map((_, idx) => `$${idx + 1}`).join(', ');
     const productResult = await query(
-      `SELECT id, unit_price, vendor_id FROM products WHERE id IN (${placeholders})`,
+      `SELECT id, vendor_id FROM products WHERE id IN (${placeholders})`,
       productIds
     );
     const productMap = {};
@@ -32,25 +32,20 @@ const placeOrder = async (req, res, next) => {
     }
     const vendor_id = vendorIds[0] || null;
 
-    const total_amount = items.reduce((sum, item) => {
-      return sum + item.quantity * parseFloat(productMap[item.product_id].unit_price);
-    }, 0);
-
     const orderResult = await query(
-      `INSERT INTO orders (retailer_id, vendor_id, status, total_amount, notes)
-       VALUES ($1, $2, 'pending', $3, $4)
+      `INSERT INTO orders (retailer_id, vendor_id, status, notes)
+       VALUES ($1, $2, 'pending', $3)
        RETURNING *`,
-      [retailer_id, vendor_id, total_amount.toFixed(2), notes || null]
+      [retailer_id, vendor_id, notes || null]
     );
     const order = orderResult.rows[0];
 
     const insertedItems = [];
     for (const item of items) {
-      const unit_price = productMap[item.product_id].unit_price;
       const itemResult = await query(
-        `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [order.id, item.product_id, item.quantity, unit_price]
+        `INSERT INTO order_items (order_id, product_id, quantity)
+         VALUES ($1, $2, $3) RETURNING *`,
+        [order.id, item.product_id, item.quantity]
       );
       insertedItems.push(itemResult.rows[0]);
     }
@@ -60,7 +55,7 @@ const placeOrder = async (req, res, next) => {
       const vendorRes = await query('SELECT mobile, name FROM users WHERE id = $1', [vendor_id]);
       const vendor = vendorRes.rows[0];
       if (vendor?.mobile) {
-        notify({ mobile: vendor.mobile, event: 'order_placed', data: { order_number: order.order_number, retailer_name: req.user.name, total_amount: order.total_amount } })
+        notify({ mobile: vendor.mobile, event: 'order_placed', data: { order_number: order.order_number, retailer_name: req.user.name } })
           .catch((e) => console.error('Notify error:', e));
       }
     }
@@ -75,7 +70,7 @@ const getOrders = async (req, res, next) => {
   try {
     const { id: userId, role } = req.user;
     const BASE_SELECT = `
-      SELECT o.id, o.order_number, o.status, o.total_amount, o.notes, o.created_at, o.updated_at,
+      SELECT o.id, o.order_number, o.status, o.notes, o.created_at, o.updated_at,
              u.name AS retailer_name, u.email AS retailer_email, u.mobile AS retailer_mobile,
              u.city AS retailer_city, u.state AS retailer_state,
              v.name AS vendor_name,
@@ -126,7 +121,7 @@ const getOrderById = async (req, res, next) => {
     if (role === 'vendor' && order.vendor_id !== userId) return res.status(403).json({ error: 'Access denied' });
 
     const itemsResult = await query(
-      `SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price, oi.created_at,
+      `SELECT oi.id, oi.product_id, oi.quantity, oi.created_at,
               p.name AS product_name, p.sku
        FROM order_items oi
        JOIN products p ON p.id = oi.product_id
