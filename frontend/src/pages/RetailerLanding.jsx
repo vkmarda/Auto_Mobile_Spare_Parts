@@ -4,6 +4,7 @@ import { useOrderFlow } from '../context/OrderFlowContext';
 import { useCart } from '../context/CartContext';
 import { getOrders, getOrderById } from '../api/orders.api';
 
+/* ── Page ────────────────────────────────────────── */
 export default function RetailerLanding() {
   const navigate = useNavigate();
   const { resetFlow } = useOrderFlow();
@@ -27,7 +28,7 @@ export default function RetailerLanding() {
     try {
       const data = await getOrderById(lastOrder.id);
       data.items.forEach((item) =>
-        addToCart({ id: item.product_id, name: item.product_name, sku: item.sku, unit_price: item.unit_price }, item.quantity)
+        addToCart({ id: item.product_id, name: item.product_name, sku: item.sku, vendor_id: data.vendor_id, vendor_name: data.vendor_name }, item.quantity)
       );
       navigate('/cart');
     } finally {
@@ -37,7 +38,7 @@ export default function RetailerLanding() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] bg-gray-50 flex flex-col items-center justify-center px-6">
-      <div className="text-center mb-10">
+      <div className="text-center mb-8">
         <span className="text-5xl mb-4 block">🔧</span>
         <h1 className="text-3xl font-bold text-gray-900">Parts Order</h1>
         <p className="text-gray-500 mt-1">Your trusted spare parts supplier</p>
@@ -66,7 +67,7 @@ export default function RetailerLanding() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-gray-800">Last order — {lastOrder.order_number}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{lastOrder.item_count} item{lastOrder.item_count !== 1 ? 's' : ''} · ₹{parseFloat(lastOrder.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{lastOrder.item_count} item{lastOrder.item_count !== 1 ? 's' : ''}</p>
             </div>
             <span className="text-blue-600 text-sm font-semibold">
               {reordering ? 'Adding…' : 'Reorder →'}

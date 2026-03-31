@@ -71,23 +71,7 @@ function Modal({ product, onClose, onSave, allProducts }) {
           {field('SKU', 'sku', 'text', true)}
           {field('Description', 'description')}
 
-          {/* Stock stepper */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Stock</label>
-            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden w-fit">
-              <button type="button"
-                onClick={() => set('stock', Math.max(0, parseInt(form.stock || 0) - 1))}
-                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg font-medium">
-                −
-              </button>
-              <span className="w-14 text-center text-sm font-semibold text-gray-900">{form.stock}</span>
-              <button type="button"
-                onClick={() => set('stock', parseInt(form.stock || 0) + 1)}
-                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-lg font-medium">
-                +
-              </button>
-            </div>
-          </div>
+          
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
@@ -148,7 +132,7 @@ export default function VendorProducts() {
           <table className="w-full text-sm min-w-[480px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Name', 'SKU', 'Stock', 'Status', ''].map((h) => (
+                {['Name', 'SKU', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-gray-600 font-medium text-left">{h}</th>
                 ))}
               </tr>
@@ -158,8 +142,7 @@ export default function VendorProducts() {
                 <tr key={p.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.sku}</td>
-                  <td className="px-4 py-3 font-medium text-gray-700">{p.stock}</td>
-                  <td className="px-4 py-3"><StockBadge stock={p.stock} /></td>
+                  
                   <td className="px-4 py-3">
                     <button onClick={() => setModal(p)}
                       className="text-xs text-blue-600 hover:underline font-medium">Edit</button>

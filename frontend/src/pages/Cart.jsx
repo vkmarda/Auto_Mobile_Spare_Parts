@@ -10,7 +10,7 @@ export default function Cart() {
   const [notes, setNotes]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
-  const [orderNumber, setOrderNumber] = useState('');
+  const [placedOrders, setPlacedOrders] = useState(null);
   const navigate = useNavigate();
 
   const vehicleLabel = [vehicleType?.name, brand?.name, model?.name].filter(Boolean).join(' › ');
@@ -23,7 +23,7 @@ export default function Cart() {
     try {
       const result = await placeOrder({ items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })), notes });
       clearCart();
-      setOrderNumber(result.order_number);
+      setPlacedOrders(result.orders);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to place order');
     } finally {
@@ -31,19 +31,28 @@ export default function Cart() {
     }
   };
 
-  if (orderNumber) {
+  if (placedOrders) {
+    const multi = placedOrders.length > 1;
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-sm w-full">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">✅</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Order Placed!</h2>
-          <p className="text-sm text-gray-500 mb-5">Order <span className="font-mono font-bold text-gray-800">{orderNumber}</span></p>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">
+            {multi ? `${placedOrders.length} Orders Placed!` : 'Order Placed!'}
+          </h2>
+          <div className="mb-5 space-y-1">
+            {placedOrders.map((o) => (
+              <p key={o.id} className="text-sm text-gray-500">
+                <span className="font-mono font-bold text-gray-800">{o.order_number}</span>
+              </p>
+            ))}
+          </div>
           <div className="space-y-3 text-left mb-6">
             {[
-              { icon: '✅', label: 'Order received by supplier' },
-              { icon: '⏳', label: 'Supplier will confirm shortly' },
+              { icon: '✅', label: 'Orders received by suppliers' },
+              { icon: '⏳', label: 'Suppliers will confirm shortly' },
               { icon: '📦', label: 'Parts will be ready for pickup' },
             ].map(({ icon, label }) => (
               <div key={label} className="flex items-center gap-3 text-sm text-gray-600">
@@ -54,7 +63,7 @@ export default function Cart() {
           </div>
           <button onClick={() => navigate('/orders')}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-sm">
-            Track My Order
+            Track My Orders
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import VendorOrderDetail from './pages/VendorOrderDetail';
 import VendorProducts from './pages/VendorProducts';
 import AdminPanel from './pages/AdminPanel';
 import RetailerLanding from './pages/RetailerLanding';
+import SearchResults from './pages/SearchResults';
 import VehicleTypeStep from './pages/order/VehicleTypeStep';
 import BrandStep from './pages/order/BrandStep';
 import ModelStep from './pages/order/ModelStep';
@@ -115,6 +116,7 @@ export default function App() {
           <Route path="/order/model"        element={<RequireAuth role="retailer"><ModelStep /></RequireAuth>} />
           <Route path="/order/category"     element={<RequireAuth role="retailer"><CategoryStep /></RequireAuth>} />
           <Route path="/products"           element={<RequireAuth role="retailer"><ProductList /></RequireAuth>} />
+          <Route path="/search"            element={<RequireAuth role="retailer"><SearchResults /></RequireAuth>} />
           <Route path="/cart"               element={<RequireAuth role="retailer"><Cart /></RequireAuth>} />
           <Route path="/orders"             element={<RequireAuth role="retailer"><MyOrders /></RequireAuth>} />
 

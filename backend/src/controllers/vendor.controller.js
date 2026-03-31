@@ -28,23 +28,24 @@ const getStats = async (req, res, next) => {
     const [qtyRes, partsRes, retailersRes, topRetailersRes,
            prevQtyRes, prevPartsRes] = await Promise.all([
       query(`SELECT COALESCE(SUM(oi.quantity),0) AS total_quantity FROM order_items oi
-             JOIN orders o ON o.id=oi.order_id
+             JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
       query(`SELECT COUNT(DISTINCT oi.product_id) AS unique_parts FROM order_items oi
-             JOIN orders o ON o.id=oi.order_id
+             JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
-      query(`SELECT COUNT(DISTINCT retailer_id) AS unique_retailers FROM orders
-             WHERE created_at >= now()-interval '${interval}' AND status!='rejected' AND vendor_id=$1`, [vendor_id]),
+      query(`SELECT COUNT(DISTINCT o.retailer_id) AS unique_retailers FROM orders o
+             WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
       query(`SELECT u.name, u.city, u.state, COUNT(o.id) AS order_count
-             FROM orders o JOIN users u ON u.id=o.retailer_id
+             FROM orders o
+             JOIN users u ON u.id = o.retailer_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1
              GROUP BY u.id,u.name,u.city,u.state ORDER BY order_count DESC LIMIT 5`, [vendor_id]),
       query(`SELECT COALESCE(SUM(oi.quantity),0) AS total_quantity FROM order_items oi
-             JOIN orders o ON o.id=oi.order_id
+             JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${prevInterval}' AND o.created_at < now()-interval '${interval}'
              AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
       query(`SELECT COUNT(DISTINCT oi.product_id) AS unique_parts FROM order_items oi
-             JOIN orders o ON o.id=oi.order_id
+             JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${prevInterval}' AND o.created_at < now()-interval '${interval}'
              AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
     ]);
@@ -74,7 +75,7 @@ const bulkAcceptOrders = async (req, res, next) => {
     }
 
     const accepted = [];
-    const skipped = [];
+    const skipped  = [];
 
     for (const id of order_ids) {
       const existing = await query('SELECT id, status, vendor_id FROM orders WHERE id = $1', [id]);

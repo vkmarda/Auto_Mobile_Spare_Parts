@@ -17,15 +17,9 @@ export default function ProductCard({ product }) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [toast, setToast] = useState(false);
-  const { cart, addToCart, clearCart } = useCart();
+  const { addToCart } = useCart();
 
   const handleAdd = () => {
-    const cartVendorId = cart.length > 0 ? cart[0].vendor_id : null;
-    if (cartVendorId && product.vendor_id && cartVendorId !== product.vendor_id) {
-      const cartVendorName = cart[0].vendor_name || 'another vendor';
-      if (!window.confirm(`Your cart has items from ${cartVendorName}. Adding this will clear your cart. Continue?`)) return;
-      clearCart();
-    }
     addToCart(product, qty);
     setAdded(true);
     setToast(true);

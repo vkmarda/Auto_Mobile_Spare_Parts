@@ -4,118 +4,114 @@ import { getOrders, getOrderById } from '../api/orders.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
-const fmt = (v) =>
-  parseFloat(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const BORDER = {
-  pending:  'border-l-yellow-400',
-  accepted: 'border-l-green-500',
-  rejected: 'border-l-red-400',
+  pending:    'border-l-yellow-400',
+  accepted:   'border-l-green-500',
+  dispatched: 'border-l-blue-400',
+  delivered:  'border-l-emerald-500',
+  rejected:   'border-l-red-400',
 };
 
 const TABS = [
-  { key: 'all',      label: 'All',      emoji: '📦' },
-  { key: 'pending',  label: 'Pending',  emoji: '⏳' },
-  { key: 'accepted', label: 'Accepted', emoji: '✅' },
-  { key: 'rejected', label: 'Rejected', emoji: '❌' },
+  { key: 'all',        label: 'All',        emoji: '📦' },
+  { key: 'pending',    label: 'Pending',    emoji: '⏳' },
+  { key: 'accepted',   label: 'Accepted',   emoji: '✅' },
+  { key: 'dispatched', label: 'Dispatched', emoji: '🚚' },
+  { key: 'delivered',  label: 'Received',   emoji: '📬' },
+  { key: 'rejected',   label: 'Rejected',   emoji: '❌' },
 ];
 
 const EMPTY = {
-  all:      { emoji: '📦', msg: "You haven't placed any orders yet.", sub: 'Start by browsing products.', link: true },
-  pending:  { emoji: '⏳', msg: 'No pending orders right now.',       sub: null,                           link: false },
-  accepted: { emoji: '✅', msg: 'No accepted orders yet.',            sub: null,                           link: false },
-  rejected: { emoji: '❌', msg: 'No rejected orders.',                sub: null,                           link: false },
+  all:        { emoji: '📦', msg: "You haven't placed any orders yet.", sub: 'Start by browsing products.', link: true },
+  pending:    { emoji: '⏳', msg: 'No pending orders right now.',        sub: null, link: false },
+  accepted:   { emoji: '✅', msg: 'No accepted orders yet.',             sub: null, link: false },
+  dispatched: { emoji: '🚚', msg: 'No dispatched orders.',               sub: null, link: false },
+  delivered:  { emoji: '📬', msg: 'No received orders yet.',             sub: null, link: false },
+  rejected:   { emoji: '❌', msg: 'No rejected orders.',                 sub: null, link: false },
 };
 
-/* ── Status timeline ─────────────────────────────── */
-function StatusTimeline({ status }) {
-  const isPending  = status === 'pending';
-  const isAccepted = status === 'accepted';
-  const isRejected = status === 'rejected';
-
-  const s2Dot  = isPending  ? 'bg-yellow-400 border-yellow-400'
-               : isAccepted ? 'bg-green-500 border-green-500'
-               :               'bg-red-500 border-red-400';
-  const s3Dot  = isAccepted ? 'bg-green-500 border-green-500'
-               : isRejected ? 'bg-red-500 border-red-400'
-               :               'bg-white border-gray-300';
-  const line1  = isPending  ? 'bg-yellow-300'
-               : isAccepted ? 'bg-green-400'
-               :               'bg-red-400';
-  const line2  = isAccepted ? 'bg-green-400'
-               : isRejected ? 'bg-red-400'
-               :               'bg-gray-200';
-  const s3Text = isAccepted ? 'text-green-600'
-               : isRejected ? 'text-red-400'
-               :               'text-gray-400';
-  const s3Label = isAccepted ? 'Confirmed' : isRejected ? 'Rejected' : 'Pending…';
-
-  const Dot = ({ cls, filled }) => (
-    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${cls}`}>
-      {filled && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-    </div>
-  );
-
-  return (
-    <div className="flex items-start gap-0">
-      <div className="flex flex-col items-center">
-        <Dot cls="bg-blue-500 border-blue-500" filled />
-        <span className="text-xs text-gray-400 mt-1 whitespace-nowrap">Placed</span>
-      </div>
-      <div className={`h-0.5 mt-2 mx-1 ${line1}`} style={{ width: 28 }} />
-      <div className="flex flex-col items-center">
-        <Dot cls={s2Dot} filled />
-        <span className="text-xs text-gray-400 mt-1 whitespace-nowrap">Review</span>
-      </div>
-      <div className={`h-0.5 mt-2 mx-1 ${line2}`} style={{ width: 28 }} />
-      <div className="flex flex-col items-center">
-        <Dot cls={s3Dot} filled={isAccepted || isRejected} />
-        <span className={`text-xs mt-1 whitespace-nowrap ${s3Text}`}>{s3Label}</span>
-      </div>
-    </div>
-  );
-}
+const COLS = '110px 1fr 120px 1fr 110px 130px';
 
 /* ── Status badge ────────────────────────────────── */
 function Badge({ status }) {
+  const LABELS = { delivered: 'Received' };
+  const label = LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1);
   const cls = {
-    pending:  'bg-yellow-100 text-yellow-700',
-    accepted: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-700',
+    pending:    'bg-yellow-100 text-yellow-700',
+    accepted:   'bg-green-100 text-green-700',
+    dispatched: 'bg-blue-100 text-blue-700',
+    delivered:  'bg-emerald-100 text-emerald-700',
+    rejected:   'bg-red-100 text-red-700',
   };
   return (
-    <span className={`inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full ${cls[status] || 'bg-gray-100 text-gray-600'}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+    <span className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full ${cls[status] || 'bg-gray-100 text-gray-600'}`}>
+      {label}
     </span>
+  );
+}
+
+/* ── Status timeline (4 steps) ───────────────────── */
+function StatusTimeline({ status }) {
+  const STEP = { pending: 0, accepted: 1, dispatched: 2, delivered: 3, rejected: 0 };
+  const current = STEP[status] ?? 0;
+  const isRejected = status === 'rejected';
+
+  const dotCls = (idx) => {
+    if (isRejected && idx === 1) return 'bg-red-500 border-red-400';
+    if (idx < current)  return 'bg-green-500 border-green-500';
+    if (idx === current) return 'bg-blue-500 border-blue-500';
+    return 'bg-white border-gray-300';
+  };
+  const lineCls = (idx) => {
+    if (isRejected && idx === 0) return 'bg-red-300';
+    if (idx < current) return 'bg-green-400';
+    return 'bg-gray-200';
+  };
+  const labelCls = (idx) => {
+    if (isRejected && idx === 1) return 'text-red-400';
+    if (idx <= current) return 'text-gray-600';
+    return 'text-gray-300';
+  };
+  const LABELS = ['Placed', isRejected ? 'Rejected' : 'Confirmed', 'Dispatched', 'Received'];
+  const filled  = (idx) => idx <= current || (isRejected && idx === 1);
+
+  return (
+    <div className="flex items-start gap-0">
+      {LABELS.map((label, idx) => (
+        <div key={label} className="flex items-start">
+          <div className="flex flex-col items-center">
+            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dotCls(idx)}`}>
+              {filled(idx) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+            <span className={`text-xs mt-1 whitespace-nowrap ${labelCls(idx)}`}>{label}</span>
+          </div>
+          {idx < LABELS.length - 1 && (
+            <div className={`h-0.5 mt-2 mx-1 ${lineCls(idx)}`} style={{ width: 22 }} />
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
 /* ── Loading skeleton ────────────────────────────── */
 function Skeleton() {
   return (
-    <div className="bg-white rounded-xl h-28 animate-pulse border border-gray-100 overflow-hidden border-l-4 border-l-gray-200 p-4 space-y-3">
-      <div className="flex gap-3">
-        <div className="h-5 w-20 bg-gray-200 rounded" />
-        <div className="h-5 w-16 bg-gray-100 rounded-full" />
-        <div className="h-5 w-20 bg-gray-100 rounded ml-auto" />
-      </div>
-      <div className="h-4 w-3/4 bg-gray-100 rounded" />
-      <div className="h-4 w-1/2 bg-gray-100 rounded" />
-    </div>
+    <div className="bg-white rounded-xl h-16 animate-pulse border border-gray-100 border-l-4 border-l-gray-200" />
   );
 }
 
 /* ── Order card ──────────────────────────────────── */
 function OrderCard({ order }) {
-  const navigate        = useNavigate();
-  const { addToCart }   = useCart();
-  const [expanded, setExpanded]       = useState(false);
-  const [details, setDetails]         = useState(null);
+  const navigate      = useNavigate();
+  const { addToCart } = useCart();
+  const [expanded, setExpanded]           = useState(false);
+  const [details, setDetails]             = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [reordering, setReordering]   = useState(false);
+  const [reordering, setReordering]       = useState(false);
 
   const toggle = async () => {
     if (!expanded && !details) {
@@ -129,15 +125,14 @@ function OrderCard({ order }) {
   const handleReorder = async () => {
     setReordering(true);
     try {
-      let items = details?.items;
-      if (!items) {
-        const data = await getOrderById(order.id);
+      let data = details;
+      if (!data) {
+        data = await getOrderById(order.id);
         setDetails(data);
-        items = data.items;
       }
-      items.forEach((item) =>
+      data.items.forEach((item) =>
         addToCart(
-          { id: item.product_id, name: item.product_name, sku: item.sku, unit_price: item.unit_price },
+          { id: item.product_id, name: item.product_name, sku: item.sku, vendor_id: data.vendor_id, vendor_name: data.vendor_name },
           item.quantity
         )
       );
@@ -149,93 +144,97 @@ function OrderCard({ order }) {
 
   const names   = Array.isArray(order.product_names) ? order.product_names : [];
   const preview = names.length === 0
-    ? null
+    ? `${order.item_count} item${order.item_count != 1 ? 's' : ''}`
     : names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2} more` : '');
 
+  const date    = fmtDate(order.created_at);
+  const daysDiff = Math.floor((Date.now() - new Date(order.created_at)) / 86400000);
+  const age     = daysDiff === 0 ? 'Today' : `${daysDiff}d ago`;
+
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow overflow-hidden border-l-4 ${BORDER[order.status] || 'border-l-gray-300'} ${order.status === 'rejected' ? 'bg-red-50' : ''}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
 
-      {/* Top row */}
-      <div className="px-4 pt-4 pb-2 flex items-center gap-2 flex-wrap">
-        <span className="font-mono font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded text-sm">{order.order_number}</span>
-        <Badge status={order.status} />
-        <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">{fmtDate(order.created_at)}</span>
+      {/* ── Mobile card (< md) ── */}
+      <div className="md:hidden px-4 py-3">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-mono font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded">{order.order_number}</span>
+              <Badge status={order.status} />
+            </div>
+            <p className="text-sm font-semibold text-gray-900">{order.vendor_name || '—'}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{preview} · {date}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          <button onClick={handleReorder} disabled={reordering}
+            className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50 font-medium">
+            {reordering ? 'Adding…' : 'Reorder'}
+          </button>
+          <button onClick={toggle} className="text-xs text-blue-600 hover:underline font-medium">
+            {expanded ? 'Hide ↑' : 'Details →'}
+          </button>
+        </div>
       </div>
 
-      {/* Middle row: item summary + amount */}
-      <div className="px-4 pb-3 flex items-center gap-3">
-        <p className="text-sm text-gray-600 min-w-0 flex-1 truncate">
-          <span className="font-medium text-gray-700">{order.item_count} item{order.item_count != 1 ? 's' : ''}</span>
-          {preview && <span className="text-gray-400"> · {preview}</span>}
-        </p>
+      {/* ── Desktop grid row (≥ md) ── */}
+      <div className="hidden md:grid px-4 py-3 items-center gap-x-3"
+        style={{ gridTemplateColumns: COLS }}>
+        <span className="font-mono font-bold text-sm bg-gray-100 text-gray-800 px-2 py-0.5 rounded truncate">
+          {order.order_number}
+        </span>
+        <p className="text-sm font-semibold text-gray-900 truncate">{order.vendor_name || '—'}</p>
+        <div>
+          <p className="text-xs text-gray-500">{date}</p>
+          <p className="text-xs text-gray-400">{age}</p>
+        </div>
+        <p className="text-sm text-gray-500 truncate">{preview}</p>
+        <div><Badge status={order.status} /></div>
+        <div className="flex items-center gap-2 justify-end">
+          <button onClick={handleReorder} disabled={reordering}
+            className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50 font-medium">
+            {reordering ? 'Adding…' : 'Reorder'}
+          </button>
+          <button onClick={toggle} className="text-xs text-blue-600 hover:underline whitespace-nowrap">
+            {expanded ? 'Hide' : 'Details'}
+          </button>
+        </div>
       </div>
 
-      {/* Timeline row */}
-      <div className="px-4 pb-3 flex items-end justify-between gap-4 flex-wrap">
-        <StatusTimeline status={order.status} />
-        <button onClick={handleReorder} disabled={reordering}
-          className="text-xs text-blue-500 underline hover:text-blue-700 disabled:opacity-50 shrink-0">
-          {reordering ? 'Adding…' : 'Reorder'}
-        </button>
-      </div>
-
-      {/* Rejected message */}
-      {order.status === 'rejected' && (
-        <p className="px-4 pb-3 text-xs text-red-400 italic">
-          This order was not accepted. Place a new order to try again.
-        </p>
-      )}
-
-      {/* Expand toggle */}
-      <button onClick={toggle}
-        className="w-full text-xs text-blue-500 hover:text-blue-700 px-4 py-2.5 border-t border-gray-100 flex items-center justify-center gap-1 hover:bg-gray-50 transition-colors">
-        {expanded ? '▲ Hide Items' : '▼ View Items'}
-      </button>
-
-      {/* Expanded items */}
+      {/* ── Expanded section ── */}
       {expanded && (
-        <div className="border-t border-gray-100 bg-gray-50 p-4">
+        <div className="border-t border-gray-100 bg-gray-50 px-4 py-4">
           {detailLoading || !details ? (
             <div className="flex justify-center py-4">
               <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
+              <StatusTimeline status={order.status} />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[300px]">
                   <thead>
-                    <tr className="text-xs uppercase tracking-wide text-gray-400 bg-gray-100 rounded">
-                      <th className="text-left px-2 py-2 rounded-l-lg">Product</th>
-                      <th className="text-left px-2 py-2 hidden sm:table-cell">SKU</th>
-                      <th className="text-right px-2 py-2 rounded-r-lg">Qty</th>
+                    <tr className="text-xs text-gray-500 border-b border-gray-200">
+                      <th className="text-left pb-2">Product</th>
+                      <th className="text-left pb-2 hidden sm:table-cell">SKU</th>
+                      <th className="text-right pb-2">Qty</th>
                     </tr>
                   </thead>
                   <tbody>
                     {details.items.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                        <td className="py-2 px-2 text-gray-800">{item.product_name}</td>
-                        <td className="py-2 px-2 text-gray-500 text-xs hidden sm:table-cell">{item.sku}</td>
-                        <td className="py-2 px-2 text-right">{item.quantity}</td>
+                        <td className="py-1.5 text-gray-800">{item.product_name}</td>
+                        <td className="py-1.5 text-gray-500 text-xs hidden sm:table-cell">{item.sku}</td>
+                        <td className="py-1.5 text-right">{item.quantity}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-
               {details.notes && (
-                <p className="mt-3 text-xs text-gray-500 italic">📝 {details.notes}</p>
+                <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>
               )}
-
-              {order.status === 'rejected' && (
-                <div className="mt-3 flex justify-end">
-                  <button onClick={handleReorder} disabled={reordering}
-                    className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5">
-                    {reordering && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {reordering ? 'Adding to cart…' : 'Reorder these items →'}
-                  </button>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
       )}
@@ -255,28 +254,29 @@ export default function MyOrders() {
   }, []);
 
   const counts = {
-    all:      orders.length,
-    pending:  orders.filter((o) => o.status === 'pending').length,
-    accepted: orders.filter((o) => o.status === 'accepted').length,
-    rejected: orders.filter((o) => o.status === 'rejected').length,
+    all:        orders.length,
+    pending:    orders.filter((o) => o.status === 'pending').length,
+    accepted:   orders.filter((o) => o.status === 'accepted').length,
+    dispatched: orders.filter((o) => o.status === 'dispatched').length,
+    delivered:  orders.filter((o) => o.status === 'delivered').length,
+    rejected:   orders.filter((o) => o.status === 'rejected').length,
   };
-
 
   const filtered = tab === 'all' ? orders : orders.filter((o) => o.status === tab);
   const empty    = EMPTY[tab];
 
   if (loading) return (
-    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-2xl mx-auto space-y-3">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto space-y-3">
       <div className="h-7 w-28 bg-gray-200 rounded animate-pulse mb-5" />
       <div className="flex gap-3 mb-5">
         {[...Array(3)].map((_, i) => <div key={i} className="h-9 w-32 bg-gray-100 rounded-full animate-pulse" />)}
       </div>
-      {[...Array(3)].map((_, i) => <Skeleton key={i} />)}
+      {[...Array(4)].map((_, i) => <Skeleton key={i} />)}
     </div>
   );
 
   return (
-    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-2xl mx-auto">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto">
 
       {/* Header */}
       <div className="mb-5">
@@ -333,7 +333,12 @@ export default function MyOrders() {
           )}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1.5">
+          <div className="hidden md:grid px-4 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wide gap-x-3"
+            style={{ gridTemplateColumns: COLS }}>
+            <span>Order</span><span>Vendor</span><span>Date</span>
+            <span>Items</span><span>Status</span><span />
+          </div>
           {filtered.map((order) => (
             <OrderCard key={order.id} order={order} />
           ))}

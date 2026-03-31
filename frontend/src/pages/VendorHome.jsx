@@ -1,128 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllOrders, acceptOrder, rejectOrder } from '../api/vendor.api';
-import { getOrderById } from '../api/orders.api';
-
-const fmt = (v) =>
-  parseFloat(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const fmtDate = (d) =>
-  new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-
-function OrderRow({ o, acting, onAccept, onReject }) {
-  const [expanded, setExpanded]           = useState(false);
-  const [details, setDetails]             = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-
-  const age      = Math.floor((Date.now() - new Date(o.created_at)) / 86400000);
-  const ageLabel = age === 0 ? 'Today' : `${age}d ago`;
-  const location = [o.retailer_city, o.retailer_state].filter(Boolean).join(', ');
-
-  const handleView = async () => {
-    if (!expanded && !details) {
-      setLoadingDetails(true);
-      try { setDetails(await getOrderById(o.id)); }
-      finally { setLoadingDetails(false); }
-    }
-    setExpanded((v) => !v);
-  };
-
-  return (
-    <div className="px-4 py-4">
-      {/* Row 1: order number + retailer name + amount + age */}
-      <div className="flex items-center justify-between gap-4 mb-1.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-mono font-bold text-sm text-blue-600 bg-blue-50 px-2 py-0.5 rounded shrink-0">
-            {o.order_number}
-          </span>
-          <p className="text-sm font-bold text-gray-900 truncate">{o.retailer_name}</p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs text-gray-400">{ageLabel}</span>
-        </div>
-      </div>
-
-      {/* Row 2: metadata + actions */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
-          {o.retailer_mobile && <span>📱 {o.retailer_mobile}</span>}
-          {location          && <span>📍 {location}</span>}
-          {o.item_count      && <span>📦 {o.item_count} item{o.item_count > 1 ? 's' : ''}</span>}
-          <span className="text-gray-300">·</span>
-          <span>{fmtDate(o.created_at)}</span>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          {onAccept && (
-            <>
-              <button disabled={acting === o.id} onClick={() => onAccept(o.id)}
-                className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 disabled:opacity-40">
-                Accept
-              </button>
-              <button disabled={acting === o.id} onClick={() => onReject(o.id)}
-                className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-medium hover:bg-red-200 disabled:opacity-40">
-                Reject
-              </button>
-            </>
-          )}
-          <button onClick={handleView}
-            className="text-xs text-blue-600 hover:underline px-2 py-1.5 font-medium">
-            {expanded ? 'Hide ↑' : 'View →'}
-          </button>
-        </div>
-      </div>
-
-      {/* Inline detail */}
-      {expanded && (
-        <div className="mt-3 bg-gray-50 rounded-lg p-3">
-          {loadingDetails || !details ? (
-            <div className="flex justify-center py-4">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-              <table className="w-full text-xs mb-2 min-w-[320px]">
-                <thead>
-                  <tr className="text-gray-400 border-b border-gray-200">
-                    <th className="text-left pb-1.5 font-medium">Product</th>
-                    <th className="text-left pb-1.5 font-medium hidden sm:table-cell">SKU</th>
-                    <th className="text-right pb-1.5 font-medium">Qty</th>
-                    {/* <th className="text-right pb-1.5 font-medium hidden sm:table-cell">Unit Price</th>
-                    <th className="text-right pb-1.5 font-medium">Total</th> */}
-                  </tr>
-                </thead>
-                <tbody>
-                  {details.items.map((item) => (
-                    <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                      <td className="py-1.5 text-gray-800">{item.product_name}</td>
-                      <td className="py-1.5 text-gray-500 hidden sm:table-cell">{item.sku}</td>
-                      <td className="py-1.5 text-right">{item.quantity}</td>
-                      {/* {/* <td className="py-1.5 text-right text-gray-600 hidden sm:table-cell">₹{fmt(item.unit_price)}</td> */}
-                      {/* <td className="py-1.5 text-right font-medium">
-                        ₹{fmt(item.quantity * parseFloat(item.unit_price))}
-                      </td> */}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                {details.notes && <p className="text-xs text-gray-500 italic">Note: {details.notes}</p>}
-                {/* <p className="text-sm font-bold text-gray-900 ml-auto">Total: ₹{fmt(details.total_amount)}</p> */}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+import VendorOrderCard, { COLS } from '../components/VendorOrderCard';
 
 export default function VendorHome() {
   const { user }          = useAuth();
   const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [acting, setActing]   = useState(null);
 
   useEffect(() => { load(); }, []);
 
@@ -131,15 +15,8 @@ export default function VendorHome() {
     try { setOrders(await getAllOrders()); } finally { setLoading(false); }
   }
 
-  async function handleAccept(id) {
-    setActing(id);
-    try { await acceptOrder(id); await load(); } finally { setActing(null); }
-  }
-
-  async function handleReject(id) {
-    setActing(id);
-    try { await rejectOrder(id); await load(); } finally { setActing(null); }
-  }
+  async function handleAccept(id) { await acceptOrder(id); await load(); }
+  async function handleReject(id) { await rejectOrder(id); await load(); }
 
   const pending  = orders.filter((o) => o.status === 'pending');
   const accepted = orders.filter((o) => o.status === 'accepted');
@@ -153,6 +30,15 @@ export default function VendorHome() {
       {[...Array(4)].map((_, i) => (
         <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />
       ))}
+    </div>
+  );
+
+  const colHeader = (
+    <div className="hidden md:grid px-4 py-1.5 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide"
+      style={{ gridTemplateColumns: COLS }}>
+      <div /><span>Order</span><span>Phone</span><span>Retailer</span>
+      <span>Date</span><span>Items</span><span>Location</span>
+      <span>Status</span><span />
     </div>
   );
 
@@ -194,9 +80,10 @@ export default function VendorHome() {
             <p className="text-sm font-medium text-green-700">All caught up! No pending orders.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+          <div className="space-y-1.5">
+            {colHeader}
             {pending.map((o) => (
-              <OrderRow key={o.id} o={o} acting={acting}
+              <VendorOrderCard key={o.id} order={o}
                 onAccept={handleAccept} onReject={handleReject} />
             ))}
           </div>
@@ -209,9 +96,10 @@ export default function VendorHome() {
         {accepted.length === 0 ? (
           <p className="text-sm text-gray-400 py-1">No accepted orders.</p>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+          <div className="space-y-1.5">
+            {colHeader}
             {accepted.map((o) => (
-              <OrderRow key={o.id} o={o} />
+              <VendorOrderCard key={o.id} order={o} />
             ))}
           </div>
         )}

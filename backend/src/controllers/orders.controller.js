@@ -25,42 +25,41 @@ const placeOrder = async (req, res, next) => {
       }
     }
 
-    // All products must belong to the same vendor
-    const vendorIds = [...new Set(Object.values(productMap).map((p) => p.vendor_id).filter(Boolean))];
-    if (vendorIds.length > 1) {
-      return res.status(400).json({ error: 'All products in an order must be from the same vendor' });
-    }
-    const vendor_id = vendorIds[0] || null;
-
-    const orderResult = await query(
-      `INSERT INTO orders (retailer_id, vendor_id, status, notes)
-       VALUES ($1, $2, 'pending', $3)
-       RETURNING *`,
-      [retailer_id, vendor_id, notes || null]
-    );
-    const order = orderResult.rows[0];
-
-    const insertedItems = [];
+    // Group items by vendor
+    const byVendor = {};
     for (const item of items) {
-      const itemResult = await query(
-        `INSERT INTO order_items (order_id, product_id, quantity)
-         VALUES ($1, $2, $3) RETURNING *`,
-        [order.id, item.product_id, item.quantity]
-      );
-      insertedItems.push(itemResult.rows[0]);
+      const vid = productMap[item.product_id].vendor_id;
+      if (!byVendor[vid]) byVendor[vid] = [];
+      byVendor[vid].push(item);
     }
 
-    // Notify vendor about new order
-    if (vendor_id) {
-      const vendorRes = await query('SELECT mobile, name FROM users WHERE id = $1', [vendor_id]);
+    // Create one independent order per vendor
+    const createdOrders = [];
+    for (const [vendor_id, vendorItems] of Object.entries(byVendor)) {
+      const orderResult = await query(
+        `INSERT INTO orders (retailer_id, vendor_id, notes, status) VALUES ($1, $2, $3, 'pending') RETURNING *`,
+        [retailer_id, vendor_id, notes || null]
+      );
+      const order = orderResult.rows[0];
+
+      for (const item of vendorItems) {
+        await query(
+          `INSERT INTO order_items (order_id, product_id, quantity) VALUES ($1, $2, $3)`,
+          [order.id, item.product_id, item.quantity]
+        );
+      }
+
+      const vendorRes = await query('SELECT mobile FROM users WHERE id = $1', [vendor_id]);
       const vendor = vendorRes.rows[0];
       if (vendor?.mobile) {
         notify({ mobile: vendor.mobile, event: 'order_placed', data: { order_number: order.order_number, retailer_name: req.user.name } })
           .catch((e) => console.error('Notify error:', e));
       }
+
+      createdOrders.push({ order_number: order.order_number, id: order.id });
     }
 
-    res.status(201).json({ ...order, items: insertedItems });
+    res.status(201).json({ orders: createdOrders });
   } catch (err) {
     next(err);
   }
@@ -69,29 +68,41 @@ const placeOrder = async (req, res, next) => {
 const getOrders = async (req, res, next) => {
   try {
     const { id: userId, role } = req.user;
-    const BASE_SELECT = `
-      SELECT o.id, o.order_number, o.status, o.notes, o.created_at, o.updated_at,
-             u.name AS retailer_name, u.email AS retailer_email, u.mobile AS retailer_mobile,
-             u.city AS retailer_city, u.state AS retailer_state,
-             v.name AS vendor_name,
-             COUNT(oi.id) AS item_count,
-             ARRAY_AGG(p.name ORDER BY oi.id) FILTER (WHERE p.name IS NOT NULL) AS product_names
-      FROM orders o
-      JOIN users u ON u.id = o.retailer_id
-      LEFT JOIN users v ON v.id = o.vendor_id
-      LEFT JOIN order_items oi ON oi.order_id = o.id
-      LEFT JOIN products p ON p.id = oi.product_id`;
-    const GROUP_BY = `GROUP BY o.id, u.name, u.email, u.mobile, u.city, u.state, v.name ORDER BY o.created_at DESC`;
 
-    let result;
-    if (role === 'retailer') {
-      result = await query(`${BASE_SELECT} WHERE o.retailer_id = $1 ${GROUP_BY}`, [userId]);
-    } else if (role === 'vendor') {
-      result = await query(`${BASE_SELECT} WHERE o.vendor_id = $1 ${GROUP_BY}`, [userId]);
-    } else {
-      result = await query(`${BASE_SELECT} ${GROUP_BY}`, []);
+    if (role === 'vendor') {
+      const result = await query(
+        `SELECT o.id, o.order_number, o.status, o.created_at, o.updated_at, o.notes,
+                u.name AS retailer_name, u.email AS retailer_email,
+                u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state,
+                COUNT(oi.id) AS item_count,
+                ARRAY_AGG(p.name ORDER BY oi.id) FILTER (WHERE p.name IS NOT NULL) AS product_names
+         FROM orders o
+         JOIN users u ON u.id = o.retailer_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         LEFT JOIN products p ON p.id = oi.product_id
+         WHERE o.vendor_id = $1
+         GROUP BY o.id, u.name, u.email, u.mobile, u.city, u.state
+         ORDER BY o.created_at DESC`,
+        [userId]
+      );
+      return res.json(result.rows);
     }
 
+    // Retailer: flat list, each order belongs to one vendor
+    const result = await query(
+      `SELECT o.id, o.order_number, o.status, o.notes, o.created_at,
+              v.name AS vendor_name,
+              COUNT(oi.id) AS item_count,
+              ARRAY_AGG(p.name ORDER BY oi.id) FILTER (WHERE p.name IS NOT NULL) AS product_names
+       FROM orders o
+       JOIN users v ON v.id = o.vendor_id
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE o.retailer_id = $1
+       GROUP BY o.id, v.name
+       ORDER BY o.created_at DESC`,
+      [userId]
+    );
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -103,55 +114,44 @@ const getOrderById = async (req, res, next) => {
     const { id } = req.params;
     const { id: userId, role } = req.user;
 
+    const ownerField = role === 'vendor' ? 'o.vendor_id' : 'o.retailer_id';
     const orderResult = await query(
-      `SELECT o.*, u.name AS retailer_name, u.email AS retailer_email,
-              u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state,
-              v.name AS vendor_name
+      `SELECT o.id, o.order_number, o.status, o.notes, o.created_at, o.updated_at,
+              v.name AS vendor_name, v.id AS vendor_id,
+              u.name AS retailer_name, u.email AS retailer_email, u.mobile AS retailer_mobile,
+              u.city AS retailer_city, u.state AS retailer_state
        FROM orders o
+       JOIN users v ON v.id = o.vendor_id
        JOIN users u ON u.id = o.retailer_id
-       LEFT JOIN users v ON v.id = o.vendor_id
-       WHERE o.id = $1`,
-      [id]
+       WHERE o.id = $1 AND ${ownerField} = $2`,
+      [id, userId]
     );
-
     if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
-    const order = orderResult.rows[0];
-
-    if (role === 'retailer' && order.retailer_id !== userId) return res.status(403).json({ error: 'Access denied' });
-    if (role === 'vendor' && order.vendor_id !== userId) return res.status(403).json({ error: 'Access denied' });
 
     const itemsResult = await query(
-      `SELECT oi.id, oi.product_id, oi.quantity, oi.created_at,
-              p.name AS product_name, p.sku
+      `SELECT oi.id, oi.product_id, oi.quantity, p.name AS product_name, p.sku
        FROM order_items oi
        JOIN products p ON p.id = oi.product_id
-       WHERE oi.order_id = $1`,
+       WHERE oi.order_id = $1 ORDER BY oi.id`,
       [id]
     );
-
-    res.json({ ...order, items: itemsResult.rows });
+    res.json({ ...orderResult.rows[0], items: itemsResult.rows });
   } catch (err) {
     next(err);
   }
 };
 
 async function checkOrderAccess(id, vendor_id) {
-  const existing = await query('SELECT * FROM orders WHERE id = $1', [id]);
-  if (existing.rows.length === 0) return { error: 'Order not found', status: 404 };
-  if (existing.rows[0].vendor_id !== vendor_id) return { error: 'Access denied', status: 403 };
-  return { order: existing.rows[0] };
-}
-
-async function getOrderWithRetailer(id) {
   const result = await query(
-    `SELECT o.*, u.name AS retailer_name, u.email AS retailer_email,
-            u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state,
-            v.name AS vendor_name
-     FROM orders o JOIN users u ON u.id = o.retailer_id
-     LEFT JOIN users v ON v.id = o.vendor_id WHERE o.id = $1`,
+    `SELECT o.*, u.mobile AS retailer_mobile, u.name AS retailer_name
+     FROM orders o
+     JOIN users u ON u.id = o.retailer_id
+     WHERE o.id = $1`,
     [id]
   );
-  return result.rows[0];
+  if (result.rows.length === 0) return { error: 'Order not found', status: 404 };
+  if (result.rows[0].vendor_id !== vendor_id) return { error: 'Access denied', status: 403 };
+  return { order: result.rows[0] };
 }
 
 const acceptOrder = async (req, res, next) => {
@@ -162,12 +162,9 @@ const acceptOrder = async (req, res, next) => {
     if (order.status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be accepted' });
 
     await query(`UPDATE orders SET status = 'accepted', updated_at = now() WHERE id = $1`, [id]);
-    const updated = await getOrderWithRetailer(id);
-
     notify({ mobile: order.retailer_mobile, event: 'order_accepted', data: { order_number: order.order_number, vendor_name: req.user.name } })
       .catch((e) => console.error('Notify error:', e));
-
-    res.json(updated);
+    res.json({ id, status: 'accepted' });
   } catch (err) { next(err); }
 };
 
@@ -179,12 +176,9 @@ const rejectOrder = async (req, res, next) => {
     if (order.status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be rejected' });
 
     await query(`UPDATE orders SET status = 'rejected', updated_at = now() WHERE id = $1`, [id]);
-    const updated = await getOrderWithRetailer(id);
-
     notify({ mobile: order.retailer_mobile, event: 'order_rejected', data: { order_number: order.order_number, vendor_name: req.user.name } })
       .catch((e) => console.error('Notify error:', e));
-
-    res.json(updated);
+    res.json({ id, status: 'rejected' });
   } catch (err) { next(err); }
 };
 
@@ -196,12 +190,9 @@ const dispatchOrder = async (req, res, next) => {
     if (order.status !== 'accepted') return res.status(400).json({ error: 'Only accepted orders can be dispatched' });
 
     await query(`UPDATE orders SET status = 'dispatched', updated_at = now() WHERE id = $1`, [id]);
-    const updated = await getOrderWithRetailer(id);
-
     notify({ mobile: order.retailer_mobile, event: 'order_dispatched', data: { order_number: order.order_number, vendor_name: req.user.name } })
       .catch((e) => console.error('Notify error:', e));
-
-    res.json(updated);
+    res.json({ id, status: 'dispatched' });
   } catch (err) { next(err); }
 };
 
@@ -213,12 +204,9 @@ const deliverOrder = async (req, res, next) => {
     if (order.status !== 'dispatched') return res.status(400).json({ error: 'Only dispatched orders can be marked delivered' });
 
     await query(`UPDATE orders SET status = 'delivered', updated_at = now() WHERE id = $1`, [id]);
-    const updated = await getOrderWithRetailer(id);
-
     notify({ mobile: order.retailer_mobile, event: 'order_delivered', data: { order_number: order.order_number, vendor_name: req.user.name } })
       .catch((e) => console.error('Notify error:', e));
-
-    res.json(updated);
+    res.json({ id, status: 'delivered' });
   } catch (err) { next(err); }
 };
 
