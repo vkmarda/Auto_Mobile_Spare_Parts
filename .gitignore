@@ -17,3 +17,6 @@ frontend/dist/
 # Logs
 *.log
 npm-debug.log*
+
+# Seed images (local downloads only)
+backend/src/db/seeds/images/
