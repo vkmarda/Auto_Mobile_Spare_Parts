@@ -1,34 +1,80 @@
 const { query } = require('../config/db');
 
-const getVehicleTypes = async (req, res, next) => {
+const getVehicleTypes = async (req, res) => {
   try {
-    const result = await query('SELECT id, name, slug FROM vehicle_types ORDER BY name', []);
-    res.json(result.rows);
-  } catch (err) { next(err); }
+    const result = await query(`
+      SELECT DISTINCT vehicle_type AS name
+      FROM products
+      WHERE vehicle_type IS NOT NULL
+        AND vehicle_type != ''
+      ORDER BY vehicle_type ASC
+    `)
+    res.json(result.rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 };
 
-const getBrands = async (req, res, next) => {
+const getBrands = async (req, res) => {
   try {
-    const { vehicle_type_id } = req.query;
-    if (!vehicle_type_id) return res.status(400).json({ error: 'vehicle_type_id required' });
-    const result = await query(
-      'SELECT id, name, slug FROM brands WHERE vehicle_type_id = $1 ORDER BY name',
-      [vehicle_type_id]
-    );
-    res.json(result.rows);
-  } catch (err) { next(err); }
+    const { vehicle_type } = req.query
+    if (!vehicle_type) {
+      return res.status(400).json({ error: 'vehicle_type required' })
+    }
+
+    const result = await query(`
+      SELECT DISTINCT
+        vehicle_brand AS name,
+        COUNT(*) AS product_count
+      FROM products
+      WHERE LOWER(vehicle_type) = LOWER($1)
+        AND vehicle_brand IS NOT NULL
+        AND vehicle_brand != ''
+      GROUP BY vehicle_brand
+      ORDER BY vehicle_brand ASC
+    `, [vehicle_type])
+
+    res.json(result.rows)
+  } catch (err) {
+    console.error('getBrands error:', err)
+    res.status(500).json({ error: err.message })
+  }
 };
 
-const getModels = async (req, res, next) => {
+const getModels = async (req, res) => {
   try {
-    const { brand_id } = req.query;
-    if (!brand_id) return res.status(400).json({ error: 'brand_id required' });
-    const result = await query(
-      'SELECT id, name, slug, year_from, year_to FROM models WHERE brand_id = $1 ORDER BY name',
-      [brand_id]
-    );
-    res.json(result.rows);
-  } catch (err) { next(err); }
+    const { vehicle_brand, vehicle_type } = req.query
+    if (!vehicle_brand) {
+      return res.status(400).json({ error: 'vehicle_brand required' })
+    }
+
+    let conditions = [
+      `LOWER(vehicle_brand) = LOWER($1)`,
+      `vehicle_model IS NOT NULL`,
+      `vehicle_model != ''`
+    ]
+    let params = [vehicle_brand]
+
+    if (vehicle_type) {
+      conditions.push(`LOWER(vehicle_type) = LOWER($2)`)
+      params.push(vehicle_type)
+    }
+
+    const result = await query(`
+      SELECT DISTINCT
+        vehicle_model AS model_name,
+        COUNT(*) AS product_count
+      FROM products
+      WHERE ${conditions.join(' AND ')}
+      GROUP BY vehicle_model
+      ORDER BY vehicle_model ASC
+    `, params)
+
+    res.json(result.rows)
+  } catch (err) {
+    console.error('getModels error:', err)
+    res.status(500).json({ error: err.message })
+  }
 };
 
 const getCategories = async (req, res, next) => {

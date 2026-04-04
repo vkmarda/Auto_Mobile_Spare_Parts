@@ -26,7 +26,7 @@ const getStats = async (req, res, next) => {
     const prevInterval = `${days * 2} days`;
 
     const [qtyRes, partsRes, retailersRes, topRetailersRes,
-           prevQtyRes, prevPartsRes] = await Promise.all([
+           prevQtyRes, prevPartsRes, statusCountsRes] = await Promise.all([
       query(`SELECT COALESCE(SUM(oi.quantity),0) AS total_quantity FROM order_items oi
              JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
@@ -48,18 +48,26 @@ const getStats = async (req, res, next) => {
              JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${prevInterval}' AND o.created_at < now()-interval '${interval}'
              AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
+      query(`SELECT status, COUNT(*) AS count FROM orders WHERE vendor_id=$1 GROUP BY status`, [vendor_id]),
     ]);
 
     const date_from = new Date();
     date_from.setDate(date_from.getDate() - days);
 
+    const statusMap = {};
+    for (const row of statusCountsRes.rows) statusMap[row.status] = parseInt(row.count);
+
     res.json({
-      total_quantity:      parseInt(qtyRes.rows[0].total_quantity),
-      unique_parts:        parseInt(partsRes.rows[0].unique_parts),
-      unique_retailers:    parseInt(retailersRes.rows[0].unique_retailers),
-      top_retailers:       topRetailersRes.rows.map((r) => ({ ...r, order_count: parseInt(r.order_count) })),
-      prev_total_quantity: parseInt(prevQtyRes.rows[0].total_quantity),
-      prev_unique_parts:   parseInt(prevPartsRes.rows[0].unique_parts),
+      total_quantity:       parseInt(qtyRes.rows[0].total_quantity),
+      unique_parts:         parseInt(partsRes.rows[0].unique_parts),
+      unique_retailers:     parseInt(retailersRes.rows[0].unique_retailers),
+      top_retailers:        topRetailersRes.rows.map((r) => ({ ...r, order_count: parseInt(r.order_count) })),
+      prev_total_quantity:  parseInt(prevQtyRes.rows[0].total_quantity),
+      prev_unique_parts:    parseInt(prevPartsRes.rows[0].unique_parts),
+      dispatched_count:     statusMap['dispatched'] || 0,
+      delivered_count:      statusMap['delivered'] || 0,
+      confirmed_count:      statusMap['confirmed'] || 0,
+      return_requested_count: statusMap['return_requested'] || 0,
       days,
       date_from: date_from.toISOString(),
     });

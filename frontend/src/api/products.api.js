@@ -1,17 +1,35 @@
-import client from './client';
+import client from './client'
 
-export const getProducts = (categoryId, vendorId, q, modelId) => {
-  const params = new URLSearchParams();
-  if (categoryId) params.set('category_id', categoryId);
-  if (vendorId)   params.set('vendor_id', vendorId);
-  if (q)          params.set('q', q);
-  if (modelId)    params.set('model_id', modelId);
-  const qs = params.toString();
-  return client.get(qs ? `/products?${qs}` : '/products').then((r) => r.data);
-};
+export const getProducts = async (filters = {}) => {
+  const params = new URLSearchParams()
+  if (filters.category_id) params.append('category_id', filters.category_id)
+  if (filters.vehicle_brand) params.append('vehicle_brand', filters.vehicle_brand)
+  if (filters.vehicle_model) params.append('vehicle_model', filters.vehicle_model)
+  if (filters.vehicle_type) params.append('vehicle_type', filters.vehicle_type)
+  if (filters.search) params.append('search', filters.search)
+  if (filters.limit) params.append('limit', filters.limit)
+  if (filters.offset) params.append('offset', filters.offset)
 
-export const createProduct = (data) =>
-  client.post('/products', data).then((r) => r.data);
+  const res = await client.get(`/products?${params.toString()}`)
+  return res.data
+}
 
-export const updateProduct = (id, data) =>
-  client.put(`/products/${id}`, data).then((r) => r.data);
+export const getProductById = async (id) => {
+  const res = await client.get(`/products/${id}`)
+  return res.data
+}
+
+export const getVehicleBrands = async () => {
+  const res = await client.get('/products/vehicle-brands')
+  return res.data
+}
+
+export const createProduct = async (data) => {
+  const res = await client.post('/products', data)
+  return res.data
+}
+
+export const updateProduct = async (id, data) => {
+  const res = await client.put(`/products/${id}`, data)
+  return res.data
+}

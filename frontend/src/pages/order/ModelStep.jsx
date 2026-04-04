@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getModels } from '../../api/vehicles.api';
-import { useOrderFlow } from '../../context/OrderFlowContext';
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useOrderFlow } from '../../context/OrderFlowContext'
+import { getModels } from '../../api/vehicles.api'
+import OrderBreadcrumb from '../../components/OrderBreadcrumb'
 
-const STEPS = ['Vehicle', 'Brand', 'Model', 'Category'];
+const STEPS = ['Vehicle', 'Brand', 'Model'];
 
 function ProgressBar({ current }) {
   return (
@@ -32,71 +33,83 @@ function ProgressBar({ current }) {
 }
 
 export default function ModelStep() {
-  const navigate = useNavigate();
-  const { vehicleType, brand, setModel } = useOrderFlow();
-  const [models, setModels] = useState([]);
-  const [sel, setSel] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const navigate = useNavigate()
+  const { brand, vehicleType, setModel } = useOrderFlow()
+  const [models, setModels] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
-    if (!brand) { navigate('/order/brand'); return; }
-    getModels(brand.id).then(setModels).finally(() => setLoading(false));
-  }, [brand]);
+    if (!brand) { navigate('/order/brand'); return }
+    getModels(brand.name, vehicleType?.name)
+      .then(setModels)
+      .catch(() => setModels([]))
+      .finally(() => setLoading(false))
+  }, [brand])
 
-  function select(model) {
-    setSel(model.id);
-    setModel(model);
-    setTimeout(() => navigate('/order/category'), 150);
+  const handleSelect = (item) => {
+    setModel({
+      id: item.model_name,
+      name: item.model_name,
+      slug: item.model_name.toLowerCase().replace(/\s+/g, '-')
+    })
+    navigate('/products')
   }
 
-  const breadcrumb = [vehicleType?.name, brand?.name].filter(Boolean).join(' › ');
+  const filtered = models.filter(m =>
+    m.model_name.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-2xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <ProgressBar current={3} />
-        <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => navigate('/order/brand')}
-            className="text-gray-400 hover:text-gray-600 text-sm font-medium">← Back</button>
-          {breadcrumb && (
-            <span className="bg-blue-100 text-blue-700 text-xs font-medium px-3 py-1 rounded-full">{breadcrumb}</span>
-          )}
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Select your model</h1>
-        <p className="text-gray-500 text-sm mb-4">Pick the exact model to find compatible parts</p>
 
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search models…"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button onClick={() => navigate('/order/brand')}
+          className="flex items-center gap-1 text-gray-400 hover:text-gray-600 text-sm mb-4 transition-colors">
+          ← Back
+        </button>
+
+        <OrderBreadcrumb currentStep="model" />
+
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Select your model</h1>
+        <p className="text-sm text-gray-400 mb-6">Pick the exact model to find compatible parts</p>
+
+        <input
+          type="text"
+          placeholder="Search models..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 shadow-sm mb-6"
+        />
 
         {loading ? (
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => <div key={i} className="bg-white rounded-xl h-14 animate-pulse border border-gray-200" />)}
+          <div className="flex flex-col gap-3">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
           </div>
-        ) : models.filter(m => m.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
-          <p className="text-center text-gray-400 py-12">No models found.</p>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <div className="text-4xl mb-3">🔍</div>
+            <p>{search ? `No models found for "${search}"` : 'No models available'}</p>
+          </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100">
-            {models.filter(m => m.name.toLowerCase().includes(search.toLowerCase())).map((m) => {
-              const years = m.year_from ? `${m.year_from}${m.year_to ? `–${m.year_to}` : '+'}` : null;
-              return (
-                <button key={m.id} onClick={() => select(m)}
-                  className={`w-full flex items-center justify-between px-5 py-4 text-left transition-colors
-                    ${sel === m.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                  <span className={`text-sm font-medium ${sel === m.id ? 'text-blue-700' : 'text-gray-900'}`}>{m.name}</span>
-                  <div className="flex items-center gap-3">
-                    {years && (
-                      <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full font-medium">{years}</span>
-                    )}
-                    <span className="text-gray-300 text-base">›</span>
-                  </div>
-                </button>
-              );
-            })}
+            {filtered.map(m => (
+              <button key={m.model_name}
+                onClick={() => handleSelect(m)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors">
+                <span className="text-sm font-semibold text-gray-900">{m.model_name}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">{m.product_count} parts available</span>
+                  <span className="text-gray-300">›</span>
+                </div>
+              </button>
+            ))}
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

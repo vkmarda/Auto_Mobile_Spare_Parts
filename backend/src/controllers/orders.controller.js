@@ -2,6 +2,9 @@ const { query } = require('../config/db');
 const { notify } = require('../services/notifications');
 
 const placeOrder = async (req, res, next) => {
+  console.log('placeOrder called')
+console.log('req.user:', req.user)
+console.log('req.body:', JSON.stringify(req.body, null, 2))
   try {
     const { items, notes } = req.body;
     const retailer_id = req.user.id;
@@ -10,6 +13,13 @@ const placeOrder = async (req, res, next) => {
       return res.status(400).json({ error: 'items array must not be empty' });
     }
 
+    for (const item of items) {
+      if (!item.product_id || item.product_id === 'null' || item.product_id === 'undefined') {
+        return res.status(400).json({ error: 'Invalid product_id in items' });
+      }
+    }
+
+    const cleanNotes = notes && notes !== 'null' ? notes : null;
     const productIds = items.map((i) => i.product_id);
     const placeholders = productIds.map((_, idx) => `$${idx + 1}`).join(', ');
     const productResult = await query(
@@ -33,14 +43,22 @@ const placeOrder = async (req, res, next) => {
       byVendor[vid].push(item);
     }
 
+    console.log('retailer_id:', req.user.id)
     // Create one independent order per vendor
     const createdOrders = [];
     for (const [vendor_id, vendorItems] of Object.entries(byVendor)) {
       const orderResult = await query(
         `INSERT INTO orders (retailer_id, vendor_id, notes, status) VALUES ($1, $2, $3, 'pending') RETURNING *`,
-        [retailer_id, vendor_id, notes || null]
+        [retailer_id, vendor_id, cleanNotes]
       );
       const order = orderResult.rows[0];
+      const orderId = orderResult.rows[0].id;
+      console.log('Inserting item:', {
+  order_id: orderResult.rows[0].id,
+  
+  product_id: orderResult.rows[0].product_id,
+  quantity: orderResult.rows[0].quantity,
+})
 
       for (const item of vendorItems) {
         await query(
@@ -129,12 +147,15 @@ const getOrderById = async (req, res, next) => {
     if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
 
     const itemsResult = await query(
-      `SELECT oi.id, oi.product_id, oi.quantity, p.name AS product_name, p.sku
+      `SELECT oi.id, oi.product_id, oi.quantity,
+              p.name AS product_name, p.part_name,
+              p.sku, p.vehicle_brand, p.vehicle_model
        FROM order_items oi
        JOIN products p ON p.id = oi.product_id
        WHERE oi.order_id = $1 ORDER BY oi.id`,
       [id]
     );
+    console.log(itemsResult);
     res.json({ ...orderResult.rows[0], items: itemsResult.rows });
   } catch (err) {
     next(err);
@@ -182,6 +203,46 @@ const rejectOrder = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const markDelivered = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { id: userId, role } = req.user;
+
+    const ownerField = role === 'vendor' ? 'o.vendor_id' : 'o.retailer_id';
+    const orderResult = await query(
+      `SELECT o.*, u.mobile AS retailer_mobile
+       FROM orders o JOIN users u ON u.id = o.retailer_id
+       WHERE o.id = $1 AND ${ownerField} = $2`,
+      [id, userId]
+    );
+    if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    const order = orderResult.rows[0];
+    if (order.status !== 'dispatched') return res.status(400).json({ error: 'Only dispatched orders can be marked delivered' });
+
+    await query(`UPDATE orders SET status = 'delivered', updated_at = now() WHERE id = $1`, [id]);
+    notify({ mobile: order.retailer_mobile, event: 'order_delivered', data: { order_number: order.order_number } })
+      .catch((e) => console.error('Notify error:', e));
+    res.json({ id, status: 'delivered' });
+  } catch (err) { next(err); }
+};
+
+const confirmOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const retailer_id = req.user.id;
+
+    const orderResult = await query(
+      `SELECT * FROM orders WHERE id = $1 AND retailer_id = $2`,
+      [id, retailer_id]
+    );
+    if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    if (orderResult.rows[0].status !== 'delivered') return res.status(400).json({ error: 'Only delivered orders can be confirmed' });
+
+    await query(`UPDATE orders SET status = 'confirmed', updated_at = now() WHERE id = $1`, [id]);
+    res.json({ id, status: 'confirmed' });
+  } catch (err) { next(err); }
+};
+
 const dispatchOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -210,4 +271,4 @@ const deliverOrder = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { placeOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder };
+module.exports = { placeOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder };

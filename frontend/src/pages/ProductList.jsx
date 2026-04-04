@@ -1,113 +1,215 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getProducts } from '../api/products.api';
-import { useCart } from '../context/CartContext';
-import { useOrderFlow } from '../context/OrderFlowContext';
-import ProductCard from '../components/ProductCard';
+import { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getProducts } from '../api/products.api'
+import { useCart } from '../context/CartContext'
+import { useOrderFlow } from '../context/OrderFlowContext'
+import ProductCard from '../components/ProductCard'
 
 function Skeleton() {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse flex flex-col">
-      <div className="h-1.5 bg-gray-200 w-full" />
-      <div className="p-4 flex flex-col gap-3">
-        <div className="h-4 bg-gray-200 rounded w-3/4" />
-        <div className="h-3 bg-gray-100 rounded w-1/3" />
-        <div className="h-6 bg-gray-200 rounded w-1/2" />
-        <div className="h-9 bg-gray-100 rounded-lg" />
-      </div>
-    </div>
-  );
+  return <div className="rounded-xl h-72 animate-pulse bg-gray-100" />
 }
 
 export default function ProductList() {
-  const navigate = useNavigate();
-  const { cart } = useCart();
-  const { vehicleType, brand, model, category, resetFlow } = useOrderFlow();
+  const navigate  = useNavigate()
+  const { cart }  = useCart()
+  const { vehicleType, brand, model, resetFlow } = useOrderFlow()
 
-  const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState('');
-  const [selectedVendor, setSelectedVendor] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [allProducts, setAllProducts]       = useState([])
+  const [categories, setCategories]         = useState([])
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [searchTerm, setSearchTerm]         = useState('')
+  const [loading, setLoading]               = useState(true)
 
+  // Fetch ALL products for the selected brand+model on mount
   useEffect(() => {
-    setLoading(true);
-    getProducts(category?.id, null, null, model?.id).then(setProducts).finally(() => setLoading(false));
-  }, [category?.id, model?.id]);
+    setLoading(true)
+    const filters = {}
+    if (brand?.name) filters.vehicle_brand = brand.name
+    if (model?.name) filters.vehicle_model = model.name
+    getProducts({ ...filters, limit: 48 })
+      .then(data => {
+        const prods = data.products || []
+        setAllProducts(prods)
+        // Extract unique categories from fetched products
+        const seen = new Map()
+        prods.forEach(p => {
+          if (p.category_id && p.category_name && !seen.has(p.category_id)) {
+            seen.set(p.category_id, { id: p.category_id, name: p.category_name })
+          }
+        })
+        setCategories([...seen.values()])
+      })
+      .catch(err => console.error('fetchProducts error:', err))
+      .finally(() => setLoading(false))
+  }, [brand?.name, model?.name])
 
-  const vendorOptions = [...new Map(
-    products.filter((p) => p.vendor_id).map((p) => [p.vendor_id, { id: p.vendor_id, name: p.vendor_name }])
-  ).values()];
+  // Client-side filtering
+  const displayedProducts = useMemo(() => {
+    let list = allProducts
+    if (selectedCategory) {
+      list = list.filter(p => p.category_id === selectedCategory)
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase()
+      list = list.filter(p =>
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.part_name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [allProducts, selectedCategory, searchTerm])
 
-  const filtered = products.filter((p) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-    const matchVendor = !selectedVendor || p.vendor_id === selectedVendor;
-    return matchSearch && matchVendor;
-  });
+  const cartCount = cart.reduce((s, i) => s + i.quantity, 0)
 
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
-  const breadcrumb = [vehicleType?.name, brand?.name, model?.name, category?.name].filter(Boolean);
+  const categoryCount = (catId) =>
+    allProducts.filter(p => p.category_id === catId).length
+
+  const selectedCategoryName = categories.find(c => c.id === selectedCategory)?.name
 
   return (
     <div className="bg-gray-50 min-h-screen pb-24">
-      {/* Vehicle context bar */}
-      {breadcrumb.length > 0 && (
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-400">Browsing for:</span>
-              <span className="bg-blue-50 text-blue-700 text-xs font-medium px-3 py-1 rounded-full">
-                {breadcrumb.join(' › ')}
-              </span>
+
+      {/* Top bar: back + breadcrumb + change vehicle */}
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+
+          {/* Back button */}
+          <button
+            onClick={() => navigate('/order/model')}
+            className="text-sm text-gray-500 hover:text-gray-700 font-medium flex-shrink-0">
+            ← Back
+          </button>
+
+          {/* Routable breadcrumb */}
+          <div className="flex items-center gap-1 text-sm flex-wrap flex-1 justify-center">
+            <span className="text-base">🏍️</span>
+            {vehicleType && (
+              <>
+                <span
+                  onClick={() => { resetFlow(); navigate('/order/vehicle-type') }}
+                  className="text-blue-500 cursor-pointer hover:underline">
+                  {vehicleType.name}
+                </span>
+                <span className="text-gray-300">›</span>
+              </>
+            )}
+            {brand && (
+              <>
+                <span
+                  onClick={() => navigate('/order/brand')}
+                  className="text-blue-500 cursor-pointer hover:underline">
+                  {brand.name}
+                </span>
+                <span className="text-gray-300">›</span>
+              </>
+            )}
+            {model && (
+              <>
+                <span
+                  onClick={() => navigate('/order/model')}
+                  className="text-blue-500 cursor-pointer hover:underline">
+                  {model.name}
+                </span>
+              </>
+            )}
+            {selectedCategoryName && (
+              <>
+                <span className="text-gray-300">›</span>
+                <span className="text-gray-700 font-medium">{selectedCategoryName}</span>
+              </>
+            )}
+          </div>
+
+          {/* Change vehicle */}
+          <button
+            onClick={() => { resetFlow(); navigate('/order/vehicle-type') }}
+            className="text-xs text-blue-600 hover:underline font-medium flex-shrink-0">
+            Change Vehicle
+          </button>
+        </div>
+      </div>
+
+      {/* Sticky category pill bar */}
+      {!loading && categories.length > 0 && (
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm py-3 px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  !selectedCategory
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                All Parts ({allProducts.length})
+              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    selectedCategory === cat.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                  {cat.name} ({categoryCount(cat.id)})
+                </button>
+              ))}
             </div>
-            <button onClick={() => { resetFlow(); navigate('/'); }}
-              className="text-xs text-blue-600 hover:underline font-medium flex-shrink-0 ml-3">
-              Change Vehicle
-            </button>
           </div>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {/* Search & filter card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-5">
-          <div className="flex flex-wrap gap-3">
-            <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or SKU…"
-              className="flex-1 min-w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            {vendorOptions.length > 1 && (
-              <select value={selectedVendor} onChange={(e) => setSelectedVendor(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="">All Vendors</option>
-                {vendorOptions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-              </select>
-            )}
-          </div>
+
+        {/* Search bar */}
+        <div className="mb-5">
+          <input
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search parts by name or SKU…"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+          />
         </div>
 
-        {/* Results header */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">{category?.name ?? 'All Products'}</h1>
+            <h1 className="text-lg font-bold text-gray-900">
+              {selectedCategoryName ?? 'All Parts'}
+            </h1>
             {!loading && (
-              <p className="text-xs text-gray-400 mt-0.5">{filtered.length} part{filtered.length !== 1 ? 's' : ''} found</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {displayedProducts.length} part{displayedProducts.length !== 1 ? 's' : ''}
+              </p>
             )}
           </div>
         </div>
 
+        {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <p className="text-4xl mb-3">🔍</p>
-            <p className="font-medium text-gray-500">No products match your filters</p>
-            <p className="text-sm mt-1">Try adjusting your search or filters</p>
+        ) : displayedProducts.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-4xl mb-3">🔧</p>
+            <p className="font-medium text-gray-500 mb-1">No parts found</p>
+            <p className="text-sm text-gray-400 mb-6">
+              {searchTerm ? 'Try a different search term' : 'Try a different category'}
+            </p>
+            {selectedCategory && (
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+                Show All Parts
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((p) => <ProductCard key={p.id} product={p} />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {displayedProducts.map(p => <ProductCard key={p.id} product={p} />)}
           </div>
         )}
       </div>
@@ -115,15 +217,20 @@ export default function ProductList() {
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-          <button onClick={() => navigate('/order/category')}
+          <button
+            onClick={() => navigate('/order/model')}
             className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50">
-            ← Change Category
+            ← Back
           </button>
-          <button onClick={() => navigate('/cart')} disabled={cartCount === 0}
+          <button
+            onClick={() => navigate('/cart')}
+            disabled={cartCount === 0}
             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
             {cartCount > 0 ? (
               <>
-                <span className="bg-white text-blue-600 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center">{cartCount}</span>
+                <span className="bg-white text-blue-600 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center">
+                  {cartCount}
+                </span>
                 View Cart · {cartCount} item{cartCount !== 1 ? 's' : ''}
               </>
             ) : 'View Cart'}
@@ -131,5 +238,5 @@ export default function ProductList() {
         </div>
       </div>
     </div>
-  );
+  )
 }

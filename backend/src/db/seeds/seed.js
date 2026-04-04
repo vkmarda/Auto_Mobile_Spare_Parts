@@ -6,16 +6,16 @@ const VENDOR_PASSWORD = 'vendor123';
 const RETAILER_PASSWORD = 'retailer123';
 
 const products = [
-  { name: 'Brake Pad Set',      sku: 'BP-001', description: null, unit_price: 450.00,  stock: 100 },
-  { name: 'Oil Filter',         sku: 'OF-002', description: null, unit_price: 120.00,  stock: 200 },
-  { name: 'Air Filter',         sku: 'AF-003', description: null, unit_price: 95.00,   stock: 150 },
-  { name: 'Spark Plug Set',     sku: 'SP-004', description: null, unit_price: 280.00,  stock: 120 },
-  { name: 'Clutch Plate',       sku: 'CP-005', description: null, unit_price: 1200.00, stock: 50  },
-  { name: 'Radiator Cap',       sku: 'RC-006', description: null, unit_price: 75.00,   stock: 300 },
-  { name: 'Timing Belt',        sku: 'TB-007', description: null, unit_price: 650.00,  stock: 60  },
-  { name: 'Fuel Filter',        sku: 'FF-008', description: null, unit_price: 110.00,  stock: 180 },
-  { name: 'Alternator Belt',    sku: 'AB-009', description: null, unit_price: 190.00,  stock: 90  },
-  { name: 'Coolant Reservoir',  sku: 'CR-010', description: null, unit_price: 320.00,  stock: 75  },
+  { name: 'Brake Pad Set',      sku: 'BP-001', description: null, stock: 100 },
+  { name: 'Oil Filter',         sku: 'OF-002', description: null, stock: 200 },
+  { name: 'Air Filter',         sku: 'AF-003', description: null, stock: 150 },
+  { name: 'Spark Plug Set',     sku: 'SP-004', description: null, stock: 120 },
+  { name: 'Clutch Plate',       sku: 'CP-005', description: null, stock: 50  },
+  { name: 'Radiator Cap',       sku: 'RC-006', description: null, stock: 300 },
+  { name: 'Timing Belt',        sku: 'TB-007', description: null, stock: 60  },
+  { name: 'Fuel Filter',        sku: 'FF-008', description: null, stock: 180 },
+  { name: 'Alternator Belt',    sku: 'AB-009', description: null, stock: 90  },
+  { name: 'Coolant Reservoir',  sku: 'CR-010', description: null, stock: 75  },
 ];
 
 async function seed() {
@@ -40,8 +40,8 @@ async function seed() {
   // Products
   for (const p of products) {
     await query(
-      'INSERT INTO products (name, sku, description, unit_price, stock) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (sku) DO NOTHING',
-      [p.name, p.sku, p.description, p.unit_price, p.stock]
+      'INSERT INTO products (name, sku, description, stock) VALUES ($1, $2, $3, $4) ON CONFLICT (sku) DO NOTHING',
+      [p.name, p.sku, p.description, p.stock]
     );
     console.log(`Seeded product: ${p.name}`);
   }

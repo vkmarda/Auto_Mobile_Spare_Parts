@@ -14,15 +14,29 @@ export default function Cart() {
   const navigate = useNavigate();
 
   const vehicleLabel = [vehicleType?.name, brand?.name, model?.name].filter(Boolean).join(' › ');
-
-  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+  const totalItems   = cart.reduce((s, i) => s + i.quantity, 0);
+  const cartCount    = totalItems;
 
   const handlePlace = async () => {
     setError('');
     setLoading(true);
     try {
-      const result = await placeOrder({ items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })), notes });
+      const validItems = cart.filter(item =>
+        item.product_id &&
+        item.product_id !== 'null' &&
+        item.product_id !== 'undefined'
+      )
+      if (validItems.length === 0) {
+        alert('No valid items in cart')
+        return
+      }
+      const items = validItems.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity
+      }))
+      const result = await placeOrder({ items, notes });
       clearCart();
+      localStorage.removeItem('cart');
       setPlacedOrders(result.orders);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to place order');
@@ -85,15 +99,27 @@ export default function Cart() {
 
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-5xl mx-auto">
+
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+          </svg>
+          Continue Shopping
+        </button>
+        <h1 className="text-xl font-bold text-gray-900">Your Cart ({cartCount} items)</h1>
+        <div className="w-36" />
+      </div>
+
       {vehicleLabel && (
         <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-2">
           <span className="text-base">🏍️</span>
           <p className="text-sm text-blue-700 font-medium">Parts for: <span className="font-bold">{vehicleLabel}</span></p>
         </div>
       )}
-      <h1 className="text-xl font-bold text-gray-900 mb-5">
-        Your Cart <span className="text-gray-400 font-normal text-base">({cart.length} item{cart.length > 1 ? 's' : ''})</span>
-      </h1>
 
       <div className="flex flex-col lg:flex-row gap-5">
         {/* Items list */}
@@ -103,6 +129,7 @@ export default function Cart() {
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
+                  {item.sku && <p className="text-xs text-gray-400 font-mono mt-0.5">{item.sku}</p>}
                 </div>
                 <button onClick={() => removeFromCart(item.product_id)}
                   className="text-red-400 hover:text-red-600 text-base leading-none flex-shrink-0 mt-0.5" title="Remove">✕</button>
@@ -132,9 +159,8 @@ export default function Cart() {
                 </div>
               ))}
             </div>
-            <div className="border-t border-gray-100 pt-3 flex justify-between font-bold text-gray-900">
-              <span>Total Items</span>
-              <span>{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
+            <div className="border-t border-gray-100 pt-3 text-center font-semibold text-gray-700 text-sm">
+              {totalItems} item{totalItems !== 1 ? 's' : ''} in your order
             </div>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Order notes (optional)" rows={2}

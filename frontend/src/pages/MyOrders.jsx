@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getOrders, getOrderById } from '../api/orders.api';
+import { getOrders, getOrderById, confirmOrder } from '../api/orders.api';
+import { createReturn, cancelReturn } from '../api/returns.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -8,201 +9,311 @@ const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const BORDER = {
-  pending:    'border-l-yellow-400',
-  accepted:   'border-l-green-500',
-  dispatched: 'border-l-blue-400',
-  delivered:  'border-l-emerald-500',
-  rejected:   'border-l-red-400',
+  pending:           'border-l-yellow-400',
+  accepted:          'border-l-blue-400',
+  dispatched:        'border-l-purple-400',
+  delivered:         'border-l-orange-400',
+  confirmed:         'border-l-green-500',
+  rejected:          'border-l-red-400',
+  return_requested:  'border-l-amber-400',
+  return_accepted:   'border-l-blue-400',
+  return_dispatched:  'border-l-purple-400',
+  return_received:    'border-l-teal-400',
+  return_settled:     'border-l-green-500',
+  return_cancelled:   'border-l-gray-300',
+};
+
+const BADGE_CLS = {
+  pending:           'bg-yellow-100 text-yellow-700',
+  accepted:          'bg-blue-100 text-blue-700',
+  dispatched:        'bg-purple-100 text-purple-700',
+  delivered:         'bg-orange-100 text-orange-700',
+  confirmed:         'bg-green-100 text-green-700',
+  rejected:          'bg-red-100 text-red-700',
+  return_requested:  'bg-amber-100 text-amber-700',
+  return_accepted:   'bg-blue-100 text-blue-700',
+  return_dispatched:  'bg-purple-100 text-purple-700',
+  return_received:    'bg-teal-100 text-teal-700',
+  return_settled:     'bg-green-100 text-green-700',
+  return_cancelled:   'bg-gray-100 text-gray-500',
+};
+
+const BADGE_LABELS = {
+  delivered:         'Delivered',
+  confirmed:         'Confirmed',
+  return_requested:  'Return Requested',
+  return_accepted:   'Return Accepted',
+  return_dispatched:  'Return in Transit',
+  return_received:    'Return Received',
+  return_settled:     'Return Settled',
+  return_cancelled:   'Return Cancelled',
 };
 
 const TABS = [
-  { key: 'all',        label: 'All',        emoji: '📦' },
-  { key: 'pending',    label: 'Pending',    emoji: '⏳' },
-  { key: 'accepted',   label: 'Accepted',   emoji: '✅' },
-  { key: 'dispatched', label: 'Dispatched', emoji: '🚚' },
-  { key: 'delivered',  label: 'Received',   emoji: '📬' },
-  { key: 'rejected',   label: 'Rejected',   emoji: '❌' },
+  { key: 'all',        label: 'All' },
+  { key: 'pending',    label: 'Pending' },
+  { key: 'accepted',   label: 'Accepted' },
+  { key: 'dispatched', label: 'Dispatched' },
+  { key: 'delivered',  label: 'Delivered' },
+  { key: 'confirmed',  label: 'Confirmed' },
+  { key: 'rejected',   label: 'Rejected' },
+  { key: 'returns',    label: 'Returns' },
 ];
 
 const EMPTY = {
   all:        { emoji: '📦', msg: "You haven't placed any orders yet.", sub: 'Start by browsing products.', link: true },
-  pending:    { emoji: '⏳', msg: 'No pending orders right now.',        sub: null, link: false },
-  accepted:   { emoji: '✅', msg: 'No accepted orders yet.',             sub: null, link: false },
-  dispatched: { emoji: '🚚', msg: 'No dispatched orders.',               sub: null, link: false },
-  delivered:  { emoji: '📬', msg: 'No received orders yet.',             sub: null, link: false },
-  rejected:   { emoji: '❌', msg: 'No rejected orders.',                 sub: null, link: false },
+  pending:    { emoji: '⏳', msg: 'No pending orders right now.',   sub: null, link: false },
+  accepted:   { emoji: '✅', msg: 'No accepted orders yet.',         sub: null, link: false },
+  dispatched: { emoji: '🚚', msg: 'No dispatched orders.',           sub: null, link: false },
+  delivered:  { emoji: '📬', msg: 'No delivered orders yet.',        sub: null, link: false },
+  confirmed:  { emoji: '✔️', msg: 'No confirmed orders.',            sub: null, link: false },
+  rejected:   { emoji: '❌', msg: 'No rejected orders.',             sub: null, link: false },
+  returns:    { emoji: '↩️', msg: 'No return requests.',             sub: null, link: false },
 };
 
 const COLS = '110px 1fr 120px 1fr 110px 130px';
 
-/* ── Status badge ────────────────────────────────── */
+const RETURN_STATES = ['return_requested', 'return_accepted', 'return_dispatched', 'return_received', 'return_settled', 'return_cancelled'];
+
 function Badge({ status }) {
-  const LABELS = { delivered: 'Received' };
-  const label = LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1);
-  const cls = {
-    pending:    'bg-yellow-100 text-yellow-700',
-    accepted:   'bg-green-100 text-green-700',
-    dispatched: 'bg-blue-100 text-blue-700',
-    delivered:  'bg-emerald-100 text-emerald-700',
-    rejected:   'bg-red-100 text-red-700',
-  };
+  const label = BADGE_LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1);
   return (
-    <span className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full ${cls[status] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full ${BADGE_CLS[status] || 'bg-gray-100 text-gray-600'}`}>
       {label}
     </span>
   );
 }
 
-/* ── Status timeline (4 steps) ───────────────────── */
+/* ── 5-step Status timeline ──────────────────────── */
 function StatusTimeline({ status }) {
-  const STEP = { pending: 0, accepted: 1, dispatched: 2, delivered: 3, rejected: 0 };
-  const current = STEP[status] ?? 0;
   const isRejected = status === 'rejected';
+  const isReturn   = RETURN_STATES.includes(status);
+  const STEPS      = ['pending', 'accepted', 'dispatched', 'delivered', 'confirmed'];
+  const LABELS     = ['Placed', isRejected ? 'Rejected' : 'Accepted', 'Dispatched', 'Delivered', 'Confirmed'];
+
+  const stepIdx = isReturn ? 4 : Math.max(0, STEPS.indexOf(status));
 
   const dotCls = (idx) => {
-    if (isRejected && idx === 1) return 'bg-red-500 border-red-400';
-    if (idx < current)  return 'bg-green-500 border-green-500';
-    if (idx === current) return 'bg-blue-500 border-blue-500';
+    if (isRejected && idx === 1) return 'bg-red-500 border-red-500';
+    if (isReturn || idx < stepIdx) return 'bg-green-500 border-green-500';
+    if (idx === stepIdx) return 'bg-blue-500 border-blue-500';
     return 'bg-white border-gray-300';
   };
   const lineCls = (idx) => {
     if (isRejected && idx === 0) return 'bg-red-300';
-    if (idx < current) return 'bg-green-400';
+    if (isReturn || idx < stepIdx) return 'bg-green-400';
     return 'bg-gray-200';
   };
   const labelCls = (idx) => {
-    if (isRejected && idx === 1) return 'text-red-400';
-    if (idx <= current) return 'text-gray-600';
+    if (isRejected && idx === 1) return 'text-red-500';
+    if (isReturn || idx <= stepIdx) return 'text-gray-600';
     return 'text-gray-300';
   };
-  const LABELS = ['Placed', isRejected ? 'Rejected' : 'Confirmed', 'Dispatched', 'Received'];
-  const filled  = (idx) => idx <= current || (isRejected && idx === 1);
+  const filled = (idx) => isReturn || idx < stepIdx || idx === stepIdx || (isRejected && idx === 1);
 
   return (
-    <div className="flex items-start gap-0">
-      {LABELS.map((label, idx) => (
-        <div key={label} className="flex items-start">
-          <div className="flex flex-col items-center">
-            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dotCls(idx)}`}>
-              {filled(idx) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+    <div className="space-y-2">
+      <div className="flex items-start gap-0">
+        {LABELS.map((label, idx) => (
+          <div key={label} className="flex items-start">
+            <div className="flex flex-col items-center">
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dotCls(idx)}`}>
+                {filled(idx) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              </div>
+              <span className={`text-xs mt-1 whitespace-nowrap ${labelCls(idx)}`}>{label}</span>
             </div>
-            <span className={`text-xs mt-1 whitespace-nowrap ${labelCls(idx)}`}>{label}</span>
+            {idx < LABELS.length - 1 && (
+              <div className={`h-0.5 mt-2 mx-1 ${lineCls(idx)}`} style={{ width: 18 }} />
+            )}
           </div>
-          {idx < LABELS.length - 1 && (
-            <div className={`h-0.5 mt-2 mx-1 ${lineCls(idx)}`} style={{ width: 22 }} />
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
+      {isReturn && <Badge status={status} />}
     </div>
   );
 }
 
-/* ── Loading skeleton ────────────────────────────── */
-function Skeleton() {
+/* ── Return modal ────────────────────────────────── */
+function ReturnModal({ order, details, onClose, onSuccess }) {
+  const [reason, setReason]       = useState('');
+  const [selected, setSelected]   = useState({});
+  const [quantities, setQuantities] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]         = useState('');
+
+  const toggleItem = (id, checked) => {
+    setSelected((p) => ({ ...p, [id]: checked }));
+    if (!checked) setQuantities((p) => { const n = { ...p }; delete n[id]; return n; });
+  };
+
+  const setQty = (id, val, max) =>
+    setQuantities((p) => ({ ...p, [id]: Math.min(Math.max(1, parseInt(val) || 1), max) }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const checkedItems = details.items.filter((i) => selected[i.id]);
+    if (!checkedItems.length) { setError('Select at least one item to return'); return; }
+    if (!reason.trim()) { setError('Reason is required'); return; }
+    setSubmitting(true); setError('');
+    try {
+      const result = await createReturn({
+        order_id: order.id,
+        reason:   reason.trim(),
+        items:    checkedItems.map((i) => ({
+          order_item_id: i.id,
+          product_id:    i.product_id,
+          quantity:      quantities[i.id] || i.quantity,
+        })),
+      });
+      onSuccess(result.return_number);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to submit return request');
+    } finally { setSubmitting(false); }
+  };
+
   return (
-    <div className="bg-white rounded-xl h-16 animate-pulse border border-gray-100 border-l-4 border-l-gray-200" />
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-base font-bold text-gray-900">Request Return — {order.order_number}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Select Items to Return</p>
+            <div className="space-y-2">
+              {details.items.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <input type="checkbox" checked={!!selected[item.id]}
+                    onChange={(e) => toggleItem(item.id, e.target.checked)}
+                    className="w-4 h-4 accent-blue-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{item.product_name}</p>
+                    <p className="text-xs text-gray-400 font-mono">{item.sku}</p>
+                  </div>
+                  <span className="text-xs text-gray-400 whitespace-nowrap">Ordered: {item.quantity}</span>
+                  {selected[item.id] && (
+                    <input type="number" min="1" max={item.quantity}
+                      value={quantities[item.id] || item.quantity}
+                      onChange={(e) => setQty(item.id, e.target.value, item.quantity)}
+                      className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center flex-shrink-0" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Reason *</label>
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)}
+              rows={3} required
+              placeholder="Please describe the reason for return..."
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting}
+              className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              {submitting && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {submitting ? 'Submitting…' : 'Submit Return Request'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
+function Skeleton() {
+  return <div className="bg-white rounded-xl h-16 animate-pulse border border-gray-100 border-l-4 border-l-gray-200" />;
+}
+
 /* ── Order card ──────────────────────────────────── */
-function OrderCard({ order }) {
+function OrderCard({ order, onRefresh }) {
   const navigate      = useNavigate();
   const { addToCart } = useCart();
-  const [expanded, setExpanded]           = useState(false);
-  const [details, setDetails]             = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [reordering, setReordering]       = useState(false);
+  const [details, setDetails]       = useState(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [reordering, setReordering]   = useState(false);
+  const [confirming, setConfirming]   = useState(false);
+  const [cancelling, setCancelling]   = useState(false);
+  const [showReturn, setShowReturn]   = useState(false);
+  const [returnSuccess, setReturnSuccess] = useState('');
 
-  const toggle = async () => {
-    if (!expanded && !details) {
-      setDetailLoading(true);
-      try { setDetails(await getOrderById(order.id)); }
-      finally { setDetailLoading(false); }
-    }
-    setExpanded((v) => !v);
-  };
+  useEffect(() => {
+    getOrderById(order.id)
+      .then(setDetails)
+      .catch(() => {})
+      .finally(() => setDetailLoading(false));
+  }, [order.id]);
 
   const handleReorder = async () => {
+    if (!details) return;
     setReordering(true);
     try {
-      let data = details;
-      if (!data) {
-        data = await getOrderById(order.id);
-        setDetails(data);
-      }
-      data.items.forEach((item) =>
-        addToCart(
-          { id: item.product_id, name: item.product_name, sku: item.sku, vendor_id: data.vendor_id, vendor_name: data.vendor_name },
-          item.quantity
-        )
+      details.items.forEach((item) =>
+        addToCart({ id: item.product_id, name: item.product_name, sku: item.sku, vendor_id: details.vendor_id, vendor_name: details.vendor_name }, item.quantity)
       );
       navigate('/cart');
-    } finally {
-      setReordering(false);
-    }
+    } finally { setReordering(false); }
   };
 
-  const names   = Array.isArray(order.product_names) ? order.product_names : [];
-  const preview = names.length === 0
-    ? `${order.item_count} item${order.item_count != 1 ? 's' : ''}`
-    : names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2} more` : '');
+  const handleConfirm = async () => {
+    setConfirming(true);
+    try { await confirmOrder(order.id); onRefresh(); } finally { setConfirming(false); }
+  };
 
-  const date    = fmtDate(order.created_at);
+  const handleCancelReturn = async () => {
+    if (!window.confirm('Cancel this return request?')) return;
+    setCancelling(true);
+    try {
+      await cancelReturn(order.id);
+      onRefresh();
+    } catch (err) {
+      console.error(err);
+    } finally { setCancelling(false); }
+  };
+
+  const handleReturnOpen = () => setShowReturn(true);
+
+  const handleReturnSuccess = (returnNumber) => {
+    setShowReturn(false);
+    setReturnSuccess(`Return request ${returnNumber} submitted`);
+    onRefresh();
+  };
+
+  const totalQty = details ? details.items.reduce((s, i) => s + i.quantity, 0) : null;
+  const date     = fmtDate(order.created_at);
   const daysDiff = Math.floor((Date.now() - new Date(order.created_at)) / 86400000);
-  const age     = daysDiff === 0 ? 'Today' : `${daysDiff}d ago`;
+  const age      = daysDiff === 0 ? 'Today' : `${daysDiff}d ago`;
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
+    <>
+      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
 
-      {/* ── Mobile card (< md) ── */}
-      <div className="md:hidden px-4 py-3">
-        <div className="flex items-start justify-between gap-3 mb-2">
+        {/* Header */}
+        <div className="px-4 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="font-mono font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded">{order.order_number}</span>
               <Badge status={order.status} />
             </div>
             <p className="text-sm font-semibold text-gray-900">{order.vendor_name || '—'}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{preview} · {date}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {date} · {age}
+              {totalQty !== null && <span> · {totalQty} unit{totalQty !== 1 ? 's' : ''}</span>}
+            </p>
           </div>
-        </div>
-        <div className="flex items-center justify-end gap-3">
-          <button onClick={handleReorder} disabled={reordering}
-            className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50 font-medium">
+          <button onClick={handleReorder} disabled={reordering || !details}
+            className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40 font-medium flex-shrink-0 mt-1">
             {reordering ? 'Adding…' : 'Reorder'}
           </button>
-          <button onClick={toggle} className="text-xs text-blue-600 hover:underline font-medium">
-            {expanded ? 'Hide ↑' : 'Details →'}
-          </button>
         </div>
-      </div>
 
-      {/* ── Desktop grid row (≥ md) ── */}
-      <div className="hidden md:grid px-4 py-3 items-center gap-x-3"
-        style={{ gridTemplateColumns: COLS }}>
-        <span className="font-mono font-bold text-sm bg-gray-100 text-gray-800 px-2 py-0.5 rounded truncate">
-          {order.order_number}
-        </span>
-        <p className="text-sm font-semibold text-gray-900 truncate">{order.vendor_name || '—'}</p>
-        <div>
-          <p className="text-xs text-gray-500">{date}</p>
-          <p className="text-xs text-gray-400">{age}</p>
-        </div>
-        <p className="text-sm text-gray-500 truncate">{preview}</p>
-        <div><Badge status={order.status} /></div>
-        <div className="flex items-center gap-2 justify-end">
-          <button onClick={handleReorder} disabled={reordering}
-            className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50 font-medium">
-            {reordering ? 'Adding…' : 'Reorder'}
-          </button>
-          <button onClick={toggle} className="text-xs text-blue-600 hover:underline whitespace-nowrap">
-            {expanded ? 'Hide' : 'Details'}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Expanded section ── */}
-      {expanded && (
+        {/* Details — always visible */}
         <div className="border-t border-gray-100 bg-gray-50 px-4 py-4">
           {detailLoading || !details ? (
             <div className="flex justify-center py-4">
@@ -211,34 +322,75 @@ function OrderCard({ order }) {
           ) : (
             <div className="space-y-4">
               <StatusTimeline status={order.status} />
+              {returnSuccess && (
+                <p className="text-sm text-green-600 font-medium bg-green-50 px-3 py-2 rounded-lg">✅ {returnSuccess}</p>
+              )}
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[300px]">
+                <table className="w-full text-xs sm:text-sm min-w-[320px]">
                   <thead>
-                    <tr className="text-xs text-gray-500 border-b border-gray-200">
-                      <th className="text-left pb-2">Product</th>
-                      <th className="text-left pb-2 hidden sm:table-cell">SKU</th>
-                      <th className="text-right pb-2">Qty</th>
+                    <tr className="text-xs text-gray-400 border-b border-gray-200">
+                      <th className="text-left pb-2 pr-3 font-medium">Part</th>
+                      <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Brand</th>
+                      <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Model</th>
+                      <th className="text-left pb-2 pr-3 font-medium">SKU</th>
+                      <th className="text-right pb-2 font-medium">Qty</th>
                     </tr>
                   </thead>
                   <tbody>
                     {details.items.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                        <td className="py-1.5 text-gray-800">{item.product_name}</td>
-                        <td className="py-1.5 text-gray-500 text-xs hidden sm:table-cell">{item.sku}</td>
-                        <td className="py-1.5 text-right">{item.quantity}</td>
+                        <td className="py-1.5 pr-3 text-gray-800 font-medium">
+                          {item.part_name || item.product_name}
+                        </td>
+                        <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">
+                          {item.vehicle_brand || '—'}
+                        </td>
+                        <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">
+                          {item.vehicle_model || '—'}
+                        </td>
+                        <td className="py-1.5 pr-3 text-gray-400 font-mono text-xs">
+                          {item.sku}
+                        </td>
+                        <td className="py-1.5 text-right font-semibold text-gray-800">
+                          {item.quantity}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {details.notes && (
-                <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>
-              )}
+              {details.notes && <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {order.status === 'delivered' && (
+                  <button onClick={handleConfirm} disabled={confirming}
+                    className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
+                    {confirming && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    {confirming ? 'Confirming…' : 'Confirm Receipt'}
+                  </button>
+                )}
+                {order.status === 'confirmed' && (
+                  <button onClick={handleReturnOpen}
+                    className="text-sm border border-amber-500 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded-lg font-medium">
+                    Request Return
+                  </button>
+                )}
+                {order.status === 'return_requested' && (
+                  <button onClick={handleCancelReturn} disabled={cancelling}
+                    className="text-sm border border-red-300 text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
+                    {cancelling && <span className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />}
+                    {cancelling ? 'Cancelling…' : 'Cancel Return'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
+      </div>
+
+      {showReturn && details && (
+        <ReturnModal order={order} details={details} onClose={() => setShowReturn(false)} onSuccess={handleReturnSuccess} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -249,9 +401,8 @@ export default function MyOrders() {
   const [tab, setTab]         = useState('all');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    getOrders().then((data) => { setOrders(data); setLoading(false); });
-  }, []);
+  const load = () => getOrders().then((data) => { setOrders(data); setLoading(false); });
+  useEffect(() => { load(); }, []);
 
   const counts = {
     all:        orders.length,
@@ -259,17 +410,21 @@ export default function MyOrders() {
     accepted:   orders.filter((o) => o.status === 'accepted').length,
     dispatched: orders.filter((o) => o.status === 'dispatched').length,
     delivered:  orders.filter((o) => o.status === 'delivered').length,
+    confirmed:  orders.filter((o) => o.status === 'confirmed').length,
     rejected:   orders.filter((o) => o.status === 'rejected').length,
+    returns:    orders.filter((o) => o.status.startsWith('return_')).length,
   };
 
-  const filtered = tab === 'all' ? orders : orders.filter((o) => o.status === tab);
-  const empty    = EMPTY[tab];
+  const filtered = tab === 'returns'
+    ? orders.filter((o) => o.status.startsWith('return_'))
+    : tab === 'all' ? orders : orders.filter((o) => o.status === tab);
+  const empty = EMPTY[tab] || EMPTY.all;
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto space-y-3">
       <div className="h-7 w-28 bg-gray-200 rounded animate-pulse mb-5" />
       <div className="flex gap-3 mb-5">
-        {[...Array(3)].map((_, i) => <div key={i} className="h-9 w-32 bg-gray-100 rounded-full animate-pulse" />)}
+        {[...Array(4)].map((_, i) => <div key={i} className="h-9 w-24 bg-gray-100 rounded-full animate-pulse" />)}
       </div>
       {[...Array(4)].map((_, i) => <Skeleton key={i} />)}
     </div>
@@ -277,49 +432,41 @@ export default function MyOrders() {
 
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto">
-
-      {/* Header */}
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
-        {user?.city && (
-          <p className="text-sm text-gray-400 mt-0.5">
-            📍 {[user.city, user.state].filter(Boolean).join(', ')}
-          </p>
+        {user?.city && <p className="text-sm text-gray-400 mt-0.5">📍 {[user.city, user.state].filter(Boolean).join(', ')}</p>}
+      </div>
+
+      <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
+        <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
+          Total: <span className="font-bold text-gray-900">{orders.length}</span>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
+          Pending: <span className="font-bold text-yellow-600">{counts.pending}</span>
+        </div>
+        {counts.delivered > 0 && (
+          <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
+            To confirm: <span className="font-bold text-orange-600">{counts.delivered}</span>
+          </div>
         )}
       </div>
 
-      {/* Summary pills */}
-      <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-        <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
-          Total Orders: <span className="font-bold text-gray-900">{orders.length}</span>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
-          Pending: <span className="font-bold text-yellow-600">{counts.pending} order{counts.pending !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
-
-      {/* Filter tabs */}
       <div className="overflow-x-auto mb-5">
         <div className="bg-white rounded-xl shadow-sm p-1 inline-flex gap-1 min-w-full sm:min-w-0">
           {TABS.map(({ key, label }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                tab === key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                tab === key ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}>
               {label}
-              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 ${
-                tab === key ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'
-              }`}>
-                {counts[key]}
+              <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 ${tab === key ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {counts[key] ?? 0}
               </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Orders list / empty state */}
       {filtered.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">{empty.emoji}</p>
@@ -340,11 +487,10 @@ export default function MyOrders() {
             <span>Items</span><span>Status</span><span />
           </div>
           {filtered.map((order) => (
-            <OrderCard key={order.id} order={order} />
+            <OrderCard key={order.id} order={order} onRefresh={load} />
           ))}
         </div>
       )}
-
     </div>
   );
 }

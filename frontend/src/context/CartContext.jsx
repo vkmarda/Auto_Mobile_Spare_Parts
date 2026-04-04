@@ -12,22 +12,24 @@ export function CartProvider({ children }) {
     localStorage.setItem('cart', JSON.stringify(items));
   };
 
-  const addToCart = (product, quantity) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.product_id === product.id);
+  const addToCart = (item) => {
+    if (!item.product_id) {
+      console.error('Cannot add to cart: missing product_id', item)
+      return
+    }
+
+    setCart(prev => {
+      const existing = prev.find(i => i.product_id === item.product_id)
       const updated = existing
-        ? prev.map((i) => i.product_id === product.id ? { ...i, quantity: i.quantity + quantity } : i)
-        : [...prev, {
-            product_id:  product.id,
-            name:        product.name,
-            sku:         product.sku,
-            vendor_id:   product.vendor_id   || null,
-            vendor_name: product.vendor_name || null,
-            quantity,
-          }];
-      localStorage.setItem('cart', JSON.stringify(updated));
-      return updated;
-    });
+        ? prev.map(i =>
+            i.product_id === item.product_id
+              ? { ...i, quantity: i.quantity + 1 }
+              : i
+          )
+        : [...prev, { ...item, quantity: item.quantity || 1 }]
+      localStorage.setItem('cart', JSON.stringify(updated))
+      return updated
+    })
   };
 
   const updateQuantity = (product_id, quantity) => {

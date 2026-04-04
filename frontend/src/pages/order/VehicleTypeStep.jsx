@@ -34,7 +34,7 @@ function SearchBar() {
 
 const ICONS = { bike: '🏍️', scooter: '🛵' };
 const SUBTITLES = { bike: 'Motorcycles & dirt bikes', scooter: 'City & geared scooters' };
-const STEPS = ['Vehicle', 'Brand', 'Model', 'Category'];
+const STEPS = ['Vehicle', 'Brand', 'Model'];
 
 function ProgressBar({ current }) {
   return (
@@ -74,8 +74,12 @@ export default function VehicleTypeStep() {
   }, []);
 
   function select(type) {
-    setSel(type.id);
-    setVehicleType(type);
+    setSel(type.name);
+    setVehicleType({
+      id: type.name,
+      name: type.name,
+      slug: type.name.toLowerCase()
+    });
     setTimeout(() => navigate('/order/brand'), 150);
   }
 
@@ -84,10 +88,14 @@ export default function VehicleTypeStep() {
       <div className="max-w-2xl mx-auto px-6 py-12">
         <SearchBar />
         <ProgressBar current={1} />
+
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => navigate('/retailer')}
+            className="text-gray-400 hover:text-gray-600 text-sm font-medium">← Back</button>
+        </div>
+
         <h1 className="text-2xl font-bold text-gray-900 mb-1">What type of vehicle?</h1>
         <p className="text-gray-500 text-sm mb-6">Select the vehicle category to find the right parts</p>
-
-        
 
         {loading ? (
           <div className="grid grid-cols-2 gap-4">
@@ -97,15 +105,18 @@ export default function VehicleTypeStep() {
           <p className="text-center text-gray-400 py-12">No vehicle types found.</p>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            {types.map((t) => (
-              <button key={t.id} onClick={() => select(t)}
-                className={`rounded-2xl p-8 border-2 text-center transition-all hover:scale-105 shadow-sm
-                  ${sel === t.id ? 'border-blue-500 bg-blue-50' : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md'}`}>
-                <span className="text-5xl block mb-3">{ICONS[t.slug] || '🏍️'}</span>
-                <p className="text-base font-bold text-gray-900">{t.name}</p>
-                <p className="text-xs text-gray-400 mt-1">{SUBTITLES[t.slug] || ''}</p>
-              </button>
-            ))}
+            {types.map((t) => {
+              const slug = t.name.toLowerCase()
+              return (
+                <button key={t.name} onClick={() => select(t)}
+                  className={`rounded-2xl p-8 border-2 text-center transition-all hover:scale-105 shadow-sm
+                    ${sel === t.name ? 'border-blue-500 bg-blue-50' : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md'}`}>
+                  <span className="text-5xl block mb-3">{ICONS[slug] || '🏍️'}</span>
+                  <p className="text-base font-bold text-gray-900">{t.name}</p>
+                  <p className="text-xs text-gray-400 mt-1">{SUBTITLES[slug] || ''}</p>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

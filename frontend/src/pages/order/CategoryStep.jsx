@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCategories } from '../../api/vehicles.api';
 import { useOrderFlow } from '../../context/OrderFlowContext';
 
-const STEPS = ['Vehicle', 'Brand', 'Model', 'Category'];
+const STEPS = ['Vehicle', 'Brand', 'Model', 'Variant', 'Category'];
 
 function ProgressBar({ current }) {
   return (
@@ -33,19 +33,25 @@ function ProgressBar({ current }) {
 
 export default function CategoryStep() {
   const navigate = useNavigate();
-  const { vehicleType, brand, model, setCategory } = useOrderFlow();
+  const { vehicleType, brand, model, variant, setCategory } = useOrderFlow();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!model) { navigate('/order/model'); return; }
+    if (!variant) { navigate('/order/variant'); return; }
     getCategories().then(setCategories).finally(() => setLoading(false));
   }, [model]);
 
   function select(cat) {
     setCategory(cat);
-    navigate('/products');
+    navigate('/products', {
+      state: {
+        category_id: cat.id,
+        category_name: cat.name,
+      }
+    });
   }
 
   const breadcrumb = [vehicleType?.name, brand?.name, model?.name].filter(Boolean).join(' › ');
@@ -53,7 +59,7 @@ export default function CategoryStep() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="max-w-2xl mx-auto px-6 py-12">
-        <ProgressBar current={4} />
+        <ProgressBar current={5} />
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate('/order/model')}
             className="text-gray-400 hover:text-gray-600 text-sm font-medium">← Back</button>

@@ -8,3 +8,9 @@ export const getOrders = () =>
 
 export const getOrderById = (id) =>
   client.get(`/orders/${id}`).then((r) => r.data);
+
+export const confirmOrder = (id) =>
+  client.post(`/orders/${id}/confirm`).then((r) => r.data);
+
+export const markDelivered = (id) =>
+  client.post(`/orders/${id}/delivered`).then((r) => r.data);

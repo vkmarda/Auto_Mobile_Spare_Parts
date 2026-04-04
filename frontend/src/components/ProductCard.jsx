@@ -1,79 +1,123 @@
-import { useState } from 'react';
-import { useCart } from '../context/CartContext';
-
-const barColor = (stock) => {
-  if (stock === 0) return 'bg-red-400';
-  if (stock < 10) return 'bg-yellow-400';
-  return 'bg-green-400';
-};
-
-const stockLabel = (stock) => {
-  if (stock === 0) return { text: 'Out of Stock', cls: 'text-red-500 bg-red-50' };
-  if (stock < 10) return { text: `Only ${stock} left`, cls: 'text-yellow-600 bg-yellow-50' };
-  return { text: `${stock} in stock`, cls: 'text-green-600 bg-green-50' };
-};
+import { useState } from 'react'
+import { useCart } from '../context/CartContext'
 
 export default function ProductCard({ product }) {
-  const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
-  const [toast, setToast] = useState(false);
-  const { addToCart } = useCart();
+  const { addToCart } = useCart()
+  const [added, setAdded] = useState(false)
+  const [imgError, setImgError] = useState(false)
+  const [qty, setQty] = useState(1)
 
-  const handleAdd = () => {
-    addToCart(product, qty);
-    setAdded(true);
-    setToast(true);
-    setTimeout(() => { setAdded(false); setToast(false); }, 3000);
-  };
+  const primaryImage = product.images?.[0]?.image_url ||
+                       product.image_url
 
-  const dec = () => setQty((q) => Math.max(1, q - 1));
-  const inc = () => setQty((q) => Math.min(product.stock, q + 1));
+  const handleQtyChange = (e) => {
+    const val = parseInt(e.target.value)
+    if (!isNaN(val) && val >= 1) setQty(val)
+    else if (e.target.value === '') setQty('')
+  }
 
-  const stock = stockLabel(product.stock);
+  const handleQtyBlur = () => {
+    if (!qty || qty < 1) setQty(1)
+  }
+
+  const handleAddToCart = () => {
+    if (!product.id) {
+      console.error('Product has no id:', product)
+      return
+    }
+    addToCart({
+      product_id: product.id,
+      name: product.part_name || product.name,
+      sku: product.sku,
+      image_url: product.images?.[0]?.image_url || product.image_url,
+      quantity: qty || 1,
+    })
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
 
   return (
-    <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-        <div className={`h-1.5 w-full ${barColor(product.stock)}`} />
-        <div className="p-4 flex flex-col gap-3 flex-1">
-          <div>
-            <p className="font-semibold text-gray-900 leading-tight">{product.name}</p>
-            <p className="text-xs text-gray-300 mt-0.5 font-mono">{product.sku}</p>
-            {product.vendor_name && (
-              <p className="text-xs text-blue-600 mt-1 font-medium">{product.vendor_name}</p>
-            )}
-          </div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all overflow-hidden flex flex-col">
 
-          {/* <div className="flex items-center justify-end">
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stock.cls}`}>
-              {stock.text}
-            </span>
-          </div> */}
-
-           <div className="flex items-center gap-2 mt-auto">
-            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-              <button onClick={dec} 
-                className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl disabled:opacity-30">−</button>
-              <span className="w-9 text-center text-sm font-semibold text-gray-900">{qty}</span>
-              <button onClick={inc} 
-                className="w-12 h-12 flex items-center justify-center text-gray-600 hover:bg-gray-50 text-xl disabled:opacity-30">+</button>
-            </div>
-            <button onClick={handleAdd} 
-              className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors ${
-                added ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40'
-              }`}>
-              {added ? '✓ Added!' : 'Add to Cart'}
-            </button>
-          </div>
-        </div>
+      {/* Image */}
+      <div className="h-44 bg-gray-50 flex items-center justify-center overflow-hidden">
+        {primaryImage && !imgError ? (
+          <img
+            src={primaryImage}
+            alt={product.part_name || product.name}
+            className="w-full h-full object-contain p-2"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <span className="text-5xl">🔧</span>
+        )}
       </div>
 
-      {toast && (
-        <div className="fixed bottom-20 right-4 z-50 bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 pointer-events-none">
-          <span className="text-green-400">✓</span>
-          {product.name} added to cart
+      {/* Content */}
+      <div className="p-4 flex flex-col flex-1">
+
+        {/* Brand badge */}
+        {product.brand && (
+          <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 rounded-full px-2 py-0.5 w-fit mb-2">
+            {product.brand}
+          </span>
+        )}
+
+        {/* Product name */}
+        <h3 className="text-sm font-semibold text-gray-900 leading-snug mb-1 line-clamp-2 flex-1">
+          {product.part_name || product.name}
+        </h3>
+
+        {/* Vehicle compatibility */}
+        {product.vehicle_brand && (
+          <p className="text-xs text-gray-400 mb-1">
+            {product.vehicle_brand}
+            {product.vehicle_model ? ` · ${product.vehicle_model}` : ''}
+          </p>
+        )}
+
+        {/* Emission standard */}
+        {product.emission_standard && (
+          <span className="text-xs bg-green-50 text-green-600 border border-green-100 rounded-full px-2 py-0.5 w-fit mb-3">
+            {product.emission_standard}
+          </span>
+        )}
+
+        {/* Qty + Add to cart */}
+        <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+            <button
+              onClick={() => setQty(q => Math.max(1, (q || 1) - 1))}
+              className="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 text-lg font-medium">
+              −
+            </button>
+            <input
+              type="number"
+              min="1"
+              value={qty}
+              onChange={handleQtyChange}
+              onBlur={handleQtyBlur}
+              className="w-10 h-9 text-center text-sm font-semibold text-gray-900 border-x border-gray-200 focus:outline-none focus:bg-blue-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <button
+              onClick={() => setQty(q => (q || 1) + 1)}
+              className="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 text-lg font-medium">
+              +
+            </button>
+          </div>
+
+          <button
+            onClick={handleAddToCart}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+              added
+                ? 'bg-green-500 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}>
+            {added ? '✓ Added' : 'Add to Cart'}
+          </button>
         </div>
-      )}
-    </>
-  );
+      </div>
+    </div>
+  )
 }

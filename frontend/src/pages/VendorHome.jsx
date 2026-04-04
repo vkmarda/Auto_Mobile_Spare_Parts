@@ -3,8 +3,40 @@ import { useAuth } from '../context/AuthContext';
 import { getAllOrders, acceptOrder, rejectOrder } from '../api/vendor.api';
 import VendorOrderCard, { COLS } from '../components/VendorOrderCard';
 
+const colHeader = (
+  <div className="hidden md:grid px-4 py-2 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50"
+    style={{ gridTemplateColumns: COLS }}>
+    <div /><span>Order</span><span>Phone</span><span>Retailer</span>
+    <span>Date</span><span>Units</span><span>Location</span>
+    <span>Status</span><span />
+  </div>
+);
+
+function OrderSection({ title, orders, onAccept, onReject, emptyIcon, emptyMsg }) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{title}</h2>
+      {orders.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 py-10 text-center">
+          <p className="text-3xl mb-2">{emptyIcon}</p>
+          <p className="text-sm font-medium text-gray-500">{emptyMsg}</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {colHeader}
+          {orders.map((o, i) => (
+            <div key={o.id} className={i < orders.length - 1 ? 'border-b border-gray-100' : ''}>
+              <VendorOrderCard order={o} onAccept={onAccept} onReject={onReject} />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function VendorHome() {
-  const { user }          = useAuth();
+  const { user }              = useAuth();
   const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,19 +58,10 @@ export default function VendorHome() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   if (loading) return (
-    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-4">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-2">
       {[...Array(4)].map((_, i) => (
         <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />
       ))}
-    </div>
-  );
-
-  const colHeader = (
-    <div className="hidden md:grid px-4 py-1.5 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide"
-      style={{ gridTemplateColumns: COLS }}>
-      <div /><span>Order</span><span>Phone</span><span>Retailer</span>
-      <span>Date</span><span>Items</span><span>Location</span>
-      <span>Status</span><span />
     </div>
   );
 
@@ -69,41 +92,28 @@ export default function VendorHome() {
         </div>
       </div>
 
-      {/* Pending orders */}
-      <section className="mb-8">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-          Needs Attention — Pending Orders
-        </h2>
-        {pending.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 py-12 text-center">
-            <p className="text-4xl mb-2">✅</p>
-            <p className="text-sm font-medium text-green-700">All caught up! No pending orders.</p>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            {colHeader}
-            {pending.map((o) => (
-              <VendorOrderCard key={o.id} order={o}
-                onAccept={handleAccept} onReject={handleReject} />
-            ))}
-          </div>
-        )}
-      </section>
+      <OrderSection
+        title="Needs Attention — Pending Orders"
+        orders={pending}
+        onAccept={handleAccept}
+        onReject={handleReject}
+        emptyIcon="✅"
+        emptyMsg="All caught up! No pending orders."
+      />
 
-      {/* Accepted orders */}
-      <section>
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Accepted Orders</h2>
-        {accepted.length === 0 ? (
-          <p className="text-sm text-gray-400 py-1">No accepted orders.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {colHeader}
-            {accepted.map((o) => (
-              <VendorOrderCard key={o.id} order={o} />
-            ))}
-          </div>
-        )}
-      </section>
+      <OrderSection
+        title="Accepted Orders"
+        orders={accepted}
+        emptyIcon="📭"
+        emptyMsg="No accepted orders."
+      />
+
+      <OrderSection
+        title="Rejected Orders"
+        orders={rejected}
+        emptyIcon="—"
+        emptyMsg="No rejected orders."
+      />
 
     </div>
   );

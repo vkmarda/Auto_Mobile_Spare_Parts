@@ -6,13 +6,16 @@ const productRoutes = require('./src/routes/products.routes');
 const orderRoutes   = require('./src/routes/orders.routes');
 const vendorRoutes  = require('./src/routes/vendor.routes');
 const vehiclesRouter = require('./src/routes/vehicles.routes');
-const adminRoutes   = require('./src/routes/admin.routes');
+const adminRoutes    = require('./src/routes/admin.routes');
+const dispatchRoutes = require('./src/routes/dispatch.routes');
+const returnsRoutes  = require('./src/routes/returns.routes');
 
 const app = express();
 
 const corsOptions = {
   origin: [
     'http://localhost:5173',
+    'http://localhost:5174',
     'http://localhost:5175',
     'http://localhost:4000',
     'https://purzaa.netlify.app',
@@ -39,7 +42,9 @@ app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/orders',   orderRoutes);
 app.use('/api/v1/vendor',   vendorRoutes);
 app.use('/api/v1/vehicles', vehiclesRouter);
-app.use('/api/v1/admin',    adminRoutes);
+app.use('/api/v1/admin',      adminRoutes);
+app.use('/api/v1/dispatches', dispatchRoutes);
+app.use('/api/v1/returns',    returnsRoutes);
 
 app.use(errorHandler);
 

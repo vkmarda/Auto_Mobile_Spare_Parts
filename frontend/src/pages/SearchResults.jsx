@@ -32,8 +32,8 @@ export default function SearchResults() {
     setInputVal(q);
     if (!q.trim()) { setProducts([]); return; }
     setLoading(true);
-    getProducts(null, null, q.trim())
-      .then(setProducts)
+    getProducts({ search: q.trim() })
+      .then((data) => setProducts(data.products || []))
       .finally(() => setLoading(false));
   }, [searchParams]);
 
