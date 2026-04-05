@@ -58,6 +58,7 @@ const getReturns = async (req, res, next) => {
 
     const result = await query(
       `SELECT rr.id, rr.return_number, rr.reason, rr.status, rr.created_at,
+              rr.order_id,
               o.order_number, u.name AS retailer_name, u.city, u.state,
               rdr.return_delivery_id,
               d.dispatch_number

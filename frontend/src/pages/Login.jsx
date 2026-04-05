@@ -64,7 +64,7 @@ export default function Login() {
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-5">
-          New to Parts Order?{' '}
+          New to Purzaa?{' '}
           <Link to="/signup" className="text-blue-600 hover:underline font-medium">Create account</Link>
         </p>
       </div>

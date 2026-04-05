@@ -175,16 +175,6 @@ export default function VendorReturns() {
                         {r.city && <span className="text-xs text-gray-400">{r.city}</span>}
                         {r.reason && <span className="text-xs text-gray-400 italic truncate max-w-xs">"{r.reason}"</span>}
                         <StatusBadge status={r.status} />
-                        <div className="ml-auto flex items-center gap-2">
-                          {r.status === 'return_received' && (
-                            <button
-                              onClick={() => handleSettleReturn(r.id)}
-                              disabled={actionLoading === r.id}
-                              className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg font-medium">
-                              {actionLoading === r.id ? '…' : 'Settle'}
-                            </button>
-                          )}
-                        </div>
                       </div>
                     ))}
                   </div>
@@ -194,6 +184,9 @@ export default function VendorReturns() {
           </section>
         );
       })()}
+
+      {/* All Returns heading */}
+      <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest">All Returns</h2>
 
       {/* Returns list */}
       {filtered.length === 0 ? (
@@ -302,17 +295,9 @@ export default function VendorReturns() {
                   )}
 
                   {return_.status === 'return_received' && (
-                    <>
-                      <span className="text-xs bg-teal-50 text-teal-600 border border-teal-200 rounded-full px-3 py-1">
-                        Items back at warehouse
-                      </span>
-                      <button
-                        onClick={() => handleSettleReturn(return_.id)}
-                        disabled={actionLoading === return_.id}
-                        className="bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                        {actionLoading === return_.id ? 'Processing...' : 'Mark Settled'}
-                      </button>
-                    </>
+                    <span className="text-xs bg-teal-50 text-teal-600 border border-teal-200 rounded-full px-3 py-1">
+                      ✓ Items back at warehouse
+                    </span>
                   )}
 
                   {return_.status === 'return_settled' && (

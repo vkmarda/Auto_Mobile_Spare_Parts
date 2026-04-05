@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getOrders, getOrderById, confirmOrder } from '../api/orders.api';
-import { createReturn, cancelReturn } from '../api/returns.api';
+import { createReturn, cancelReturn, getReturns } from '../api/returns.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -112,18 +112,18 @@ function StatusTimeline({ status }) {
   const filled = (idx) => isReturn || idx < stepIdx || idx === stepIdx || (isRejected && idx === 1);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-start gap-0">
         {LABELS.map((label, idx) => (
           <div key={label} className="flex items-start">
             <div className="flex flex-col items-center">
-              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dotCls(idx)}`}>
-                {filled(idx) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dotCls(idx)}`}>
+                {filled(idx) && <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white" />}
               </div>
-              <span className={`text-xs mt-1 whitespace-nowrap ${labelCls(idx)}`}>{label}</span>
+              <span className={`text-[9px] sm:text-xs mt-0.5 sm:mt-1 whitespace-nowrap ${labelCls(idx)}`}>{label}</span>
             </div>
             {idx < LABELS.length - 1 && (
-              <div className={`h-0.5 mt-2 mx-1 ${lineCls(idx)}`} style={{ width: 18 }} />
+              <div className={`h-0.5 mt-1.5 sm:mt-2 mx-0.5 sm:mx-1 ${lineCls(idx)}`} style={{ width: 12 }} />
             )}
           </div>
         ))}
@@ -232,7 +232,7 @@ function Skeleton() {
 }
 
 /* ── Order card ──────────────────────────────────── */
-function OrderCard({ order, onRefresh }) {
+function OrderCard({ order, onRefresh, returnData }) {
   const navigate      = useNavigate();
   const { addToCart } = useCart();
   const [details, setDetails]       = useState(null);
@@ -325,6 +325,41 @@ function OrderCard({ order, onRefresh }) {
               {returnSuccess && (
                 <p className="text-sm text-green-600 font-medium bg-green-50 px-3 py-2 rounded-lg">✅ {returnSuccess}</p>
               )}
+
+              {/* Return request details */}
+              {returnData && RETURN_STATES.includes(order.status) && (
+                <div className="rounded-lg border border-amber-200 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-100">
+                    <span className="text-xs font-bold text-amber-700">↩ Return</span>
+                    <span className="font-mono text-xs text-amber-600">{returnData.return_number}</span>
+                    <Badge status={returnData.status} />
+                    {returnData.reason && (
+                      <span className="text-xs text-gray-400 italic truncate max-w-[160px]">"{returnData.reason}"</span>
+                    )}
+                  </div>
+                  {returnData.items?.length > 0 && (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-gray-400 bg-gray-50 border-b border-gray-100">
+                          <th className="text-left px-3 py-1.5 font-medium">Part</th>
+                          <th className="text-left px-3 py-1.5 font-medium hidden sm:table-cell">SKU</th>
+                          <th className="text-right px-3 py-1.5 font-medium">Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {returnData.items.map((item) => (
+                          <tr key={item.id} className="border-b border-gray-50 last:border-0">
+                            <td className="px-3 py-1.5 text-gray-700">{item.product_name}</td>
+                            <td className="px-3 py-1.5 text-gray-400 font-mono hidden sm:table-cell">{item.sku}</td>
+                            <td className="px-3 py-1.5 text-right font-medium text-gray-800">{item.quantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-xs sm:text-sm min-w-[320px]">
                   <thead>
@@ -397,11 +432,19 @@ function OrderCard({ order, onRefresh }) {
 /* ── Page ────────────────────────────────────────── */
 export default function MyOrders() {
   const { user }              = useAuth();
-  const [orders, setOrders]   = useState([]);
-  const [tab, setTab]         = useState('all');
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders]       = useState([]);
+  const [returnsMap, setReturnsMap] = useState({});
+  const [tab, setTab]             = useState('all');
+  const [loading, setLoading]     = useState(true);
 
-  const load = () => getOrders().then((data) => { setOrders(data); setLoading(false); });
+  const load = async () => {
+    const [orderData, returnData] = await Promise.all([getOrders(), getReturns().catch(() => [])]);
+    setOrders(orderData);
+    const map = {};
+    for (const r of returnData) { map[r.order_id] = r; }
+    setReturnsMap(map);
+    setLoading(false);
+  };
   useEffect(() => { load(); }, []);
 
   const counts = {
@@ -487,7 +530,7 @@ export default function MyOrders() {
             <span>Items</span><span>Status</span><span />
           </div>
           {filtered.map((order) => (
-            <OrderCard key={order.id} order={order} onRefresh={load} />
+            <OrderCard key={order.id} order={order} onRefresh={load} returnData={returnsMap[order.id]} />
           ))}
         </div>
       )}
