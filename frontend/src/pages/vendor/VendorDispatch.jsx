@@ -66,7 +66,7 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
     setPrinting(true);
     try {
       const data = await getDispatchSheet(dispatch.id);
-      await printDispatch(data);
+      printDispatch(data);
     } finally { setPrinting(false); }
   };
 

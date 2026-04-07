@@ -1,10 +1,10 @@
-import html2pdf from 'html2pdf.js';
-
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const css = `
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#111;background:#fff}
+  @page{size:A4 landscape;margin:12mm 15mm}
+  @media print{.no-print{display:none!important}}
   .header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1d4ed8;padding-bottom:8px;margin-bottom:14px}
   .brand{font-size:16px;font-weight:800;color:#1d4ed8}.sub{font-size:10px;color:#6b7280;margin-top:2px}
   .meta{text-align:right;font-size:10px;color:#6b7280}
@@ -20,16 +20,13 @@ const css = `
   .ret-tag{color:#d97706;font-family:monospace;font-weight:700}
   .status{display:inline-block;padding:1px 6px;border-radius:999px;font-size:9px;font-weight:600;background:#e0f2fe;color:#0369a1}
   .ret-status{background:#fef3c7;color:#92400e}
-  .filters{font-size:10px;color:#6b7280;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap}
-  .filter-tag{background:#f1f5f9;padding:2px 8px;border-radius:4px}
 `;
 
 function statusBadge(s, cls = 'status') {
   return `<span class="${cls}">${s.replace(/_/g, ' ')}</span>`;
 }
 
-export async function printOrders(rows, filterSummary = '') {
-  // rows: array of { order, orderItems, ret, retItems }
+export function printOrders(rows, filterSummary = '') {
   const now = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const tableRows = rows.map(({ order, orderItems, ret, retItems }) => {
@@ -76,35 +73,37 @@ export async function printOrders(rows, filterSummary = '') {
     return itemRows + retRows;
   }).join('');
 
-  const container = document.createElement('div');
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:277mm';
-  container.innerHTML = `
-    <style>${css}</style>
-    <div style="padding:12mm 15mm;background:#fff">
-      <div class="header">
-        <div><div class="brand">🔧 Purzaa</div><div class="sub">Orders Export &nbsp;·&nbsp; ${rows.length} order${rows.length!==1?'s':''}</div></div>
-        <div class="meta"><div>${now}</div>${filterSummary ? `<div style="margin-top:2px">${filterSummary}</div>` : ''}</div>
-      </div>
-      <table>
-        <thead><tr>
-          <th></th><th></th>
-          <th>Order No</th><th>Retailer</th><th>Mobile</th><th>City</th><th>Date</th><th>Status</th>
-          <th>Brand</th><th>Model</th><th>Year</th><th>Product / Part</th><th>SKU</th><th>Qty</th>
-          <th>Return No</th><th>Ret Brand</th><th>Ret Model</th><th>Ret Product</th><th>Ret Qty</th><th>Return Status</th>
-        </tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-    </div>`;
-  document.body.appendChild(container);
+  const win = window.open('', '_blank');
+  if (!win) { alert('Please allow popups to export orders as PDF.'); return; }
 
-  await html2pdf().set({
-    margin:      0,
-    filename:    `orders_${new Date().toISOString().slice(0,10)}.pdf`,
-    image:       { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' },
-    pagebreak:   { mode: 'avoid-all' },
-  }).from(container).save();
-
-  document.body.removeChild(container);
+  win.document.write(`<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <title>Orders Export</title>
+  <style>${css}</style>
+</head><body>
+  <div class="no-print" style="position:sticky;top:0;z-index:999;background:#1d4ed8;color:#fff;padding:8px 16px;font-size:12px;display:flex;align-items:center;gap:12px">
+    <span style="flex:1">Print or save as PDF using your browser's print dialog. Set orientation to <strong>Landscape</strong>.</span>
+    <button onclick="window.print()" style="background:#fff;color:#1d4ed8;border:none;padding:5px 14px;border-radius:4px;font-weight:700;cursor:pointer;font-size:12px">Print / Save PDF</button>
+    <button onclick="window.close()" style="background:transparent;color:#bfdbfe;border:1px solid #bfdbfe;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px">Close</button>
+  </div>
+  <div style="padding:12mm 15mm">
+    <div class="header">
+      <div><div class="brand">Purzaa</div><div class="sub">Orders Export &nbsp;·&nbsp; ${rows.length} order${rows.length!==1?'s':''}</div></div>
+      <div class="meta"><div>${now}</div>${filterSummary ? `<div style="margin-top:2px">${filterSummary}</div>` : ''}</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th></th><th></th>
+        <th>Order No</th><th>Retailer</th><th>Mobile</th><th>City</th><th>Date</th><th>Status</th>
+        <th>Brand</th><th>Model</th><th>Year</th><th>Product / Part</th><th>SKU</th><th>Qty</th>
+        <th>Return No</th><th>Ret Brand</th><th>Ret Model</th><th>Ret Product</th><th>Ret Qty</th><th>Return Status</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 800);
 }

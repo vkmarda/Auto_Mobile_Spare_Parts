@@ -1,11 +1,10 @@
-import html2pdf from 'html2pdf.js';
-
 const fmt = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const css = `
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:#111;background:#fff}
   @page{size:A4;margin:15mm 18mm}
+  @media print{.no-print{display:none!important}}
   .pb{page-break-before:always}
   .header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1d4ed8;padding-bottom:10px;margin-bottom:16px}
   .brand{font-size:18px;font-weight:800;color:#1d4ed8}.sub{font-size:11px;color:#6b7280;margin-top:2px}
@@ -91,7 +90,7 @@ function retailerPage(orders, linkedReturn, dispatch, isFirst) {
   return `
     <div class="${isFirst ? '' : 'pb'}">
       <div class="header">
-        <div><div class="brand">🔧 Purzaa</div><div class="sub">${dispatch.dispatch_number} &nbsp;·&nbsp; Retailer Sheet</div></div>
+        <div><div class="brand">Purzaa</div><div class="sub">${dispatch.dispatch_number} &nbsp;·&nbsp; Retailer Sheet</div></div>
         <div class="meta"><div>${dispatch.city}${dispatch.state ? ', '+dispatch.state : ''}</div><div>${fmt(dispatch.created_at)}</div></div>
       </div>
       <div class="rh">
@@ -108,7 +107,7 @@ function returnOnlyPage(ret, dispatch) {
   return `
     <div class="pb">
       <div class="header">
-        <div><div class="brand">🔧 Purzaa</div><div class="sub">${dispatch.dispatch_number} &nbsp;·&nbsp; Return Pickup</div></div>
+        <div><div class="brand">Purzaa</div><div class="sub">${dispatch.dispatch_number} &nbsp;·&nbsp; Return Pickup</div></div>
         <div class="meta"><div>${dispatch.city}${dispatch.state ? ', '+dispatch.state : ''}</div><div>${fmt(dispatch.created_at)}</div></div>
       </div>
       <div class="rh">
@@ -124,13 +123,12 @@ function returnOnlyPage(ret, dispatch) {
     </div>`;
 }
 
-export async function printDispatch(data) {
+export function printDispatch(data) {
   const orders  = data.orders || [];
   const returns = data.return_delivery?.requests || [];
   const totalItems  = orders.reduce((s, o) => s + o.items.length, 0);
   const returnCount = returns.length;
 
-  // Index returns by retailer_id for matching
   const retByRetailer = {};
   for (const r of returns) retByRetailer[r.retailer_id] = r;
   const orderRetailerIds = new Set(orders.map(o => o.retailer_id));
@@ -139,7 +137,7 @@ export async function printDispatch(data) {
   const summaryPage = `
     <div>
       <div class="header">
-        <div><div class="brand">🔧 Purzaa</div><div class="sub">Dispatch Run Sheet</div></div>
+        <div><div class="brand">Purzaa</div><div class="sub">Dispatch Run Sheet</div></div>
         <div class="meta">
           <div class="dnum">${data.dispatch_number}</div>
           <div>${data.city}${data.state ? ', '+data.state : ''} &nbsp;·&nbsp; ${fmt(data.created_at)}</div>
@@ -175,9 +173,8 @@ export async function printDispatch(data) {
         </table></div>` : ''}
     </div>`;
 
-  // Group orders by retailer_id — one page per retailer
-  const retailerGroups = [];
   const seen = {};
+  const retailerGroups = [];
   for (const o of orders) {
     if (!seen[o.retailer_id]) { seen[o.retailer_id] = []; retailerGroups.push(seen[o.retailer_id]); }
     seen[o.retailer_id].push(o);
@@ -188,24 +185,26 @@ export async function printDispatch(data) {
 
   const returnPages = standaloneReturns.map(r => returnOnlyPage(r, data)).join('');
 
-  const container = document.createElement('div');
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm';
-  container.innerHTML = `
-    <style>${css}</style>
-    <div style="padding:15mm 18mm;background:#fff">
-      ${summaryPage}
-      <div class="pb">${retailerPages}${returnPages}</div>
-    </div>`;
-  document.body.appendChild(container);
+  const win = window.open('', '_blank');
+  if (!win) { alert('Please allow popups to print the dispatch sheet.'); return; }
 
-  await html2pdf().set({
-    margin:      0,
-    filename:    `${data.dispatch_number}.pdf`,
-    image:       { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak:   { mode: 'css', before: '.pb' },
-  }).from(container).save();
-
-  document.body.removeChild(container);
+  win.document.write(`<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <title>${data.dispatch_number}</title>
+  <style>${css}</style>
+</head><body>
+  <div class="no-print" style="position:sticky;top:0;z-index:999;background:#1d4ed8;color:#fff;padding:8px 16px;font-size:12px;display:flex;align-items:center;gap:12px">
+    <span style="flex:1">Print or save as PDF using your browser's print dialog.</span>
+    <button onclick="window.print()" style="background:#fff;color:#1d4ed8;border:none;padding:5px 14px;border-radius:4px;font-weight:700;cursor:pointer;font-size:12px">Print / Save PDF</button>
+    <button onclick="window.close()" style="background:transparent;color:#bfdbfe;border:1px solid #bfdbfe;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px">Close</button>
+  </div>
+  <div style="padding:15mm 18mm">
+    ${summaryPage}
+    <div class="pb">${retailerPages}${returnPages}</div>
+  </div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 800);
 }

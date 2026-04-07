@@ -145,7 +145,7 @@ export default function VendorOrders() {
     try {
       const rows = await buildRows();
       const filters = [retailer, city, dateFrom && `From ${dateFrom}`, dateTo && `To ${dateTo}`].filter(Boolean).join(' · ');
-      await printOrders(rows, filters);
+      printOrders(rows, filters);
     } finally { setExporting2(false); }
   };
 
