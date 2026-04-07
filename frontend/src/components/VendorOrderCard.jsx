@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getOrderById } from '../api/orders.api';
 import StatusBadge from './StatusBadge';
+import DetailModal from './DetailModal';
 
 const BORDER = { pending: 'border-l-yellow-400', accepted: 'border-l-green-500', rejected: 'border-l-red-400' };
 
@@ -10,9 +11,10 @@ export const COLS = '20px 90px 110px 1fr 130px 55px 120px 90px 140px 60px';
 
 export default function VendorOrderCard({ order, onAccept, onReject, checkable, checked, onCheck }) {
   const navigate              = useNavigate();
-  const [details, setDetails] = useState(null);
-  const [acting, setActing]   = useState(null);
-  const isPending             = order.status === 'pending';
+  const [details, setDetails]   = useState(null);
+  const [acting, setActing]     = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const isPending               = order.status === 'pending';
   const [expanded, setExpanded] = useState(isPending);
 
   useEffect(() => {
@@ -78,6 +80,9 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
                   className="w-4 h-4 accent-blue-600" />
               )}
               <span className="font-mono font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded">{order.order_number}</span>
+              {order.order_type === 'photo' && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">📷</span>
+              )}
               <StatusBadge status={order.status} />
             </div>
             <p className={`text-sm ${isPending ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
@@ -140,6 +145,28 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
           <div className="flex justify-center py-4">
             <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
+        ) : details.order_type === 'photo' ? (
+          /* ── Photo order items ── */
+          <div className="divide-y divide-gray-100">
+            {details.items.map((item, i) => (
+              <div key={item.id || i} className="px-4 py-3 space-y-2">
+                <div className="flex items-start gap-3">
+                  <a href={item.photo_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                    <img src={item.photo_url} alt="Part" className="w-16 h-16 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity" />
+                  </a>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                      {item.vehicle_brand && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">{item.vehicle_brand}</span>}
+                      {item.vehicle_model && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">{item.vehicle_model}</span>}
+                      {item.manufacture_year && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">{item.manufacture_year}</span>}
+                    </div>
+                    <p className="text-xs text-gray-500">Qty: <span className="font-semibold text-gray-800">{item.quantity}</span></p>
+                    {item.note && <p className="text-xs text-gray-500 italic mt-0.5">"{item.note}"</p>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <>
             {/* Sub-header — desktop, same COLS grid */}
@@ -178,7 +205,15 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
             )}
           </>
         )}
+        <div className="px-4 py-2 border-t border-gray-100 flex justify-end">
+          <button onClick={() => setShowDetail(true)}
+            className="text-xs text-blue-600 hover:underline font-medium">
+            View Status
+          </button>
+        </div>
       </div>}
+
+      {showDetail && <DetailModal type="order" id={order.id} onClose={() => setShowDetail(false)} />}
     </div>
   );
 }

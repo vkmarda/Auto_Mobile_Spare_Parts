@@ -1,9 +1,10 @@
 const router = require('express').Router();
-const { placeOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder } = require('../controllers/orders.controller');
+const { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder } = require('../controllers/orders.controller');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 
-router.post('/',    auth, requireRole('retailer'),                    placeOrder);
+router.post('/',       auth, requireRole('retailer'), placeOrder);
+router.post('/photo',  auth, requireRole('retailer'), placePhotoOrder);
 router.get('/',     auth, requireRole('retailer', 'vendor', 'admin'), getOrders);
 router.get('/:id',  auth, requireRole('retailer', 'vendor', 'admin'), getOrderById);
 router.post('/:id/accept',   auth, requireRole('vendor'), acceptOrder);

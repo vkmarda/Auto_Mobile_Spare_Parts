@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as returnsApi from '../../api/returns.api';
 import StatusBadge from '../../components/StatusBadge';
+import DetailModal from '../../components/DetailModal';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -28,6 +29,7 @@ export default function VendorReturns() {
   const [counts, setCounts]           = useState({ requested: 0, accepted: 0, dispatched: 0, received: 0, settled: 0 });
   const [actionLoading, setActionLoading] = useState(null);
   const [loadError, setLoadError]     = useState('');
+  const [detailId, setDetailId]       = useState(null);
 
   useEffect(() => { fetchReturns(); }, []);
 
@@ -180,6 +182,7 @@ export default function VendorReturns() {
                   </div>
                 </div>
               ))}
+              
             </div>
           </section>
         );
@@ -226,32 +229,69 @@ export default function VendorReturns() {
                   )}
                 </div>
 
-                {/* Items table */}
+                {/* Return items — works for both standard and photo orders */}
                 {return_.items?.length > 0 && (
                   <div className="px-4 pb-2">
-                    <table className="w-full text-xs bg-gray-50 rounded-lg overflow-hidden">
-                      <thead>
-                        <tr className="text-gray-400 border-b border-gray-200">
-                          <th className="text-left px-3 py-2">Product</th>
-                          <th className="text-left px-3 py-2 hidden sm:table-cell">SKU</th>
-                          <th className="text-right px-3 py-2">Qty</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    {return_.items[0]?.photo_url ? (
+                      /* Photo order return items */
+                      <div className="space-y-2">
                         {return_.items.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                            <td className="px-3 py-2 text-gray-700">{item.product_name}</td>
-                            <td className="px-3 py-2 text-gray-400 font-mono hidden sm:table-cell">{item.sku}</td>
-                            <td className="px-3 py-2 text-right font-medium text-gray-800">{item.quantity}</td>
-                          </tr>
+                          <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
+                            <a href={item.photo_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                              <img src={item.photo_url} alt="Part" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+                            </a>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap gap-1 mb-0.5">
+                                {item.vehicle_brand && <span className="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-medium">{item.vehicle_brand}</span>}
+                                {item.vehicle_model && <span className="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-medium">{item.vehicle_model}</span>}
+                                {item.manufacture_year && <span className="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded font-medium">{item.manufacture_year}</span>}
+                              </div>
+                              {item.note && <p className="text-xs text-gray-400 italic truncate">"{item.note}"</p>}
+                            </div>
+                            <span className="text-xs font-semibold text-gray-800 flex-shrink-0">×{item.quantity}</span>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                    ) : (
+                      /* Standard order return items */
+                      <table className="w-full text-xs bg-gray-50 rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-gray-200">
+                            <th className="text-left px-3 py-2">Product</th>
+                            <th className="text-left px-3 py-2 hidden sm:table-cell">SKU</th>
+                            <th className="text-right px-3 py-2">Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {return_.items.map((item) => (
+                            <tr key={item.id} className="border-b border-gray-100 last:border-0">
+                              <td className="px-3 py-2 text-gray-700">{item.product_name}</td>
+                              <td className="px-3 py-2 text-gray-400 font-mono hidden sm:table-cell">{item.sku}</td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-800">{item.quantity}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+
+                {/* Return photos */}
+                {return_.photos?.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <p className="text-xs font-medium text-gray-400 mb-2">Photos</p>
+                    <div className="flex flex-wrap gap-2">
+                      {return_.photos.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                          <img src={url} alt={`Return photo ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity" />
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-100">
+                <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-t border-gray-100">
                   {return_.status === 'return_requested' && (
                     <>
                       <button
@@ -305,12 +345,21 @@ export default function VendorReturns() {
                       ✓ Settled — no further action needed
                     </span>
                   )}
+                  <button
+                    onClick={() => setDetailId(return_.id)}
+                    className="ml-auto text-xs text-blue-600 hover:underline font-medium">
+                    More Details
+                  </button>
                 </div>
 
               </div>
             );
           })}
         </div>
+      )}
+
+      {detailId && (
+        <DetailModal type="return" id={detailId} onClose={() => setDetailId(null)} />
       )}
     </div>
   );

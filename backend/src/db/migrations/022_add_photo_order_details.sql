@@ -1,0 +1,5 @@
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS vehicle_brand    VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS vehicle_model    VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS manufacture_year VARCHAR(10),
+  ADD COLUMN IF NOT EXISTS photo_quantity   INTEGER;

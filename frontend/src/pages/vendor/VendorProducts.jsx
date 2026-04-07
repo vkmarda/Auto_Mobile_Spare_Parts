@@ -82,7 +82,7 @@ export default function VendorProducts() {
   const [loading, setLoading]   = useState(true);
   const [modal, setModal]       = useState(null);
 
-  const refresh = () => getProducts().then((d) => { setProducts(d); setLoading(false); });
+  const refresh = () => getProducts().then((d) => { setProducts(d.products || []); setLoading(false); });
   useEffect(() => { refresh(); }, []);
 
   const handleSave = () => { setModal(null); refresh(); };

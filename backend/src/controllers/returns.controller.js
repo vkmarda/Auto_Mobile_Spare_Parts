@@ -2,7 +2,7 @@ const { query, withTransaction } = require('../config/db');
 
 const createReturn = async (req, res, next) => {
   try {
-    const { order_id, reason, items } = req.body;
+    const { order_id, reason, items, photos } = req.body;
     const retailer_id = req.user.id;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -14,33 +14,40 @@ const createReturn = async (req, res, next) => {
       [order_id, retailer_id]
     );
     if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
-    if (orderResult.rows[0].status !== 'confirmed') {
+    const order = orderResult.rows[0];
+    if (order.status !== 'confirmed') {
       return res.status(400).json({ error: 'Only confirmed orders can be returned' });
     }
 
+    const isPhotoOrder = order.order_type === 'photo';
+    const itemTable   = isPhotoOrder ? 'order_photo_items' : 'order_items';
+    const itemIdField = isPhotoOrder ? 'order_photo_item_id' : 'order_item_id';
+
     for (const item of items) {
+      const itemId = isPhotoOrder ? item.order_photo_item_id : item.order_item_id;
       const origResult = await query(
-        `SELECT quantity FROM order_items WHERE id = $1 AND order_id = $2`,
-        [item.order_item_id, order_id]
+        `SELECT quantity FROM ${itemTable} WHERE id = $1 AND order_id = $2`,
+        [itemId, order_id]
       );
-      if (origResult.rows.length === 0) {
-        return res.status(400).json({ error: `Invalid order_item_id: ${item.order_item_id}` });
-      }
-      if (item.quantity > origResult.rows[0].quantity) {
-        return res.status(400).json({ error: `Return quantity exceeds original for item ${item.order_item_id}` });
-      }
+      if (origResult.rows.length === 0) return res.status(400).json({ error: `Invalid item id: ${itemId}` });
+      if (item.quantity > origResult.rows[0].quantity) return res.status(400).json({ error: `Return quantity exceeds original` });
     }
 
     const returnReq = await withTransaction(async (tq) => {
+      const photoArr = Array.isArray(photos) && photos.length > 0 ? photos : [];
       const returnResult = await tq(
-        `INSERT INTO return_requests (order_id, retailer_id, reason, status) VALUES ($1, $2, $3, 'return_requested') RETURNING *`,
-        [order_id, retailer_id, reason]
+        `INSERT INTO return_requests (order_id, retailer_id, reason, status, photos) VALUES ($1, $2, $3, 'return_requested', $4) RETURNING *`,
+        [order_id, retailer_id, reason, photoArr]
       );
       const rr = returnResult.rows[0];
       for (const item of items) {
+        const itemId = isPhotoOrder ? item.order_photo_item_id : item.order_item_id;
         await tq(
-          `INSERT INTO return_items (return_request_id, order_item_id, product_id, quantity) VALUES ($1, $2, $3, $4)`,
-          [rr.id, item.order_item_id, item.product_id, item.quantity]
+          `INSERT INTO return_items (return_request_id, ${itemIdField}, ${isPhotoOrder ? '' : 'product_id, '}quantity)
+           VALUES ($1, $2, ${isPhotoOrder ? '$3' : '$3, $4'})`,
+          isPhotoOrder
+            ? [rr.id, itemId, item.quantity]
+            : [rr.id, itemId, item.product_id, item.quantity]
         );
       }
       await tq(`UPDATE orders SET status = 'return_requested', updated_at = now() WHERE id = $1`, [order_id]);
@@ -57,9 +64,10 @@ const getReturns = async (req, res, next) => {
     const filterField = role === 'vendor' ? 'o.vendor_id' : 'rr.retailer_id';
 
     const result = await query(
-      `SELECT rr.id, rr.return_number, rr.reason, rr.status, rr.created_at,
+      `SELECT rr.id, rr.return_number, rr.reason, rr.status, rr.photos, rr.return_quantity, rr.created_at,
               rr.order_id,
-              o.order_number, u.name AS retailer_name, u.city, u.state,
+              o.order_number, o.order_type,
+              u.name AS retailer_name, u.city, u.state,
               rdr.return_delivery_id,
               d.dispatch_number
        FROM return_requests rr
@@ -76,9 +84,13 @@ const getReturns = async (req, res, next) => {
     const returns = [];
     for (const row of result.rows) {
       const itemsResult = await query(
-        `SELECT ri.id, ri.quantity, p.name AS product_name, p.sku
+        `SELECT ri.id, ri.quantity,
+                p.name AS product_name, p.sku,
+                opi.photo_url, opi.vehicle_brand, opi.vehicle_model, opi.manufacture_year
          FROM return_items ri
-         JOIN products p ON p.id = ri.product_id
+         LEFT JOIN order_items oi ON oi.id = ri.order_item_id
+         LEFT JOIN products p ON p.id = oi.product_id
+         LEFT JOIN order_photo_items opi ON opi.id = ri.order_photo_item_id
          WHERE ri.return_request_id = $1`,
         [row.id]
       );
@@ -114,7 +126,7 @@ const acceptReturn = async (req, res) => {
 
     const result = await query(
       `UPDATE return_requests
-       SET status = 'return_accepted', updated_at = now()
+       SET status = 'return_accepted', accepted_at = now(), updated_at = now()
        WHERE id = $1
        RETURNING *`,
       [id]
@@ -140,7 +152,7 @@ const settleReturn = async (req, res, next) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Return request not found' });
 
-    await query(`UPDATE return_requests SET status = 'return_settled', updated_at = now() WHERE id = $1`, [id]);
+    await query(`UPDATE return_requests SET status = 'return_settled', settled_at = now(), updated_at = now() WHERE id = $1`, [id]);
     res.json({ id, status: 'return_settled' });
   } catch (err) { next(err); }
 };
@@ -160,7 +172,7 @@ const cancelReturn = async (req, res, next) => {
     }
 
     const rr = result.rows[0];
-    await query(`UPDATE return_requests SET status = 'return_cancelled', updated_at = now() WHERE id = $1`, [rr.id]);
+    await query(`UPDATE return_requests SET status = 'return_cancelled', cancelled_at = now(), updated_at = now() WHERE id = $1`, [rr.id]);
     await query(`UPDATE orders SET status = 'confirmed', updated_at = now() WHERE id = $1`, [order_id]);
 
     res.json({ return_id: rr.id, status: 'return_cancelled' });

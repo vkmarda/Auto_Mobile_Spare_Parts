@@ -90,6 +90,7 @@ export default function Navbar() {
           {user.role === 'vendor' && (
             <>
               {navLink('/vendor',           'Home',      'pending')}
+              {navLink('/vendor/orders',    'Orders')}
               {navLink('/vendor/dispatch',  'Dispatch',  'accepted')}
               {navLink('/vendor/returns',   'Returns',   'returns')}
               {navLink('/vendor/dashboard', 'Dashboard')}
@@ -155,6 +156,7 @@ export default function Navbar() {
             {user.role === 'vendor' && (
               <>
                 {mobileLink('/vendor',           'Home',      'pending')}
+                {mobileLink('/vendor/orders',    'Orders')}
                 {mobileLink('/vendor/dispatch',  'Dispatch',  'accepted')}
                 {mobileLink('/vendor/returns',   'Returns',   'returns')}
                 {mobileLink('/vendor/dashboard', 'Dashboard')}

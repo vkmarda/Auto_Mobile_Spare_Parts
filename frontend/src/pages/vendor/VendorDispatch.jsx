@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { getAllOrders } from '../../api/vendor.api';
 import { getReturns } from '../../api/returns.api';
 import { createDispatch, getDispatches, markDispatchDelivered, getDispatchSheet } from '../../api/dispatch.api';
+import { printDispatch } from '../../utils/printDispatch';
 import StatusBadge from '../../components/StatusBadge';
+import DetailModal from '../../components/DetailModal';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const fmtDateKey = (d) => {
@@ -49,68 +51,23 @@ function ConfirmModal({ city, orderCount, cityCount, returnCount, onConfirm, onC
 }
 
 
-function buildDispatchCsv(data) {
-  const rows = [];
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-  rows.push([`Dispatch: ${data.dispatch_number}`, `City: ${data.city}${data.state ? ', ' + data.state : ''}`, `Status: ${data.status}`, `Date: ${fmtDate(data.created_at)}`].join(','));
-  rows.push('');
-
-  rows.push('ORDERS');
-  rows.push(['Order No', 'Retailer', 'Mobile', 'City', 'State', 'Notes', 'Part Name', 'Product', 'SKU', 'Brand', 'Model', 'Qty'].map(esc).join(','));
-  for (const o of data.orders) {
-    if (o.items.length === 0) {
-      rows.push([o.order_number, o.retailer_name, o.mobile, o.city, o.state, o.notes, '', '', '', '', '', ''].map(esc).join(','));
-    } else {
-      for (const item of o.items) {
-        rows.push([o.order_number, o.retailer_name, o.mobile, o.city, o.state, o.notes,
-          item.part_name, item.product_name, item.sku, item.vehicle_brand, item.vehicle_model, item.quantity].map(esc).join(','));
-      }
-    }
-  }
-
-  if (data.return_delivery?.requests?.length > 0) {
-    rows.push('');
-    rows.push('RETURN REQUESTS');
-    rows.push(['Return No', 'Retailer', 'Mobile', 'City', 'State', 'Reason', 'Part Name', 'Product', 'SKU', 'Brand', 'Model', 'Qty'].map(esc).join(','));
-    for (const r of data.return_delivery.requests) {
-      if (r.items.length === 0) {
-        rows.push([r.return_number, r.retailer_name, r.mobile, r.city, r.state, r.reason, '', '', '', '', '', ''].map(esc).join(','));
-      } else {
-        for (const item of r.items) {
-          rows.push([r.return_number, r.retailer_name, r.mobile, r.city, r.state, r.reason,
-            item.part_name, item.product_name, item.sku, item.vehicle_brand, item.vehicle_model, item.quantity].map(esc).join(','));
-        }
-      }
-    }
-  }
-
-  return rows.join('\n');
-}
-
-function DispatchCard({ dispatch, onMarkDelivered }) {
+function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
   const [expanded, setExpanded] = useState(false);
   const [acting, setActing]     = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const handleDeliver = async () => {
     setActing(true);
     try { await onMarkDelivered(dispatch.id); } finally { setActing(false); }
   };
 
-  const handleDownload = async () => {
-    setDownloading(true);
+  const handlePrint = async () => {
+    setPrinting(true);
     try {
       const data = await getDispatchSheet(dispatch.id);
-      const csv = buildDispatchCsv(data);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${dispatch.dispatch_number}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally { setDownloading(false); }
+      await printDispatch(data);
+    } finally { setPrinting(false); }
   };
 
   return (
@@ -128,10 +85,10 @@ function DispatchCard({ dispatch, onMarkDelivered }) {
           {' · '}{fmtDate(dispatch.created_at)}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={handleDownload} disabled={downloading}
+          <button onClick={handlePrint} disabled={printing}
             className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 flex items-center gap-1.5">
-            {downloading && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
-            {downloading ? 'Preparing…' : '↓ Sheet'}
+            {printing && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
+            {printing ? 'Preparing…' : '🖨 Print Sheet'}
           </button>
           {dispatch.status === 'dispatched' && (
             <button onClick={handleDeliver} disabled={acting}
@@ -159,6 +116,10 @@ function DispatchCard({ dispatch, onMarkDelivered }) {
                 </span>
                 <span className="text-gray-700">{o.retailer_name}</span>
                 <StatusBadge status={o.status} />
+                <button onClick={() => onShowDetail({ type: 'order', id: o.id })}
+                  className="ml-auto text-xs text-blue-600 hover:underline font-medium">
+                  Details
+                </button>
               </div>
             ))}
           </div>
@@ -178,8 +139,12 @@ function DispatchCard({ dispatch, onMarkDelivered }) {
                     </span>
                     <span className="text-xs text-gray-700 font-medium">{r.retailer_name}</span>
                     {r.city && <span className="text-xs text-gray-400">{r.city}</span>}
-                    <div className="ml-auto">
+                    <div className="ml-auto flex items-center gap-2">
                       <StatusBadge status={r.status} />
+                      <button onClick={() => onShowDetail({ type: 'return', id: r.id })}
+                        className="text-xs text-blue-600 hover:underline font-medium">
+                        Details
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -203,6 +168,7 @@ export default function VendorDispatch() {
   const [error, setError]         = useState('');
   const [dispatchCity, setDispatchCity]   = useState(null);
   const [showCityConfirm, setShowCityConfirm] = useState(false);
+  const [detail, setDetail] = useState(null); // { type, id }
 
   useEffect(() => { load(); }, []);
 
@@ -321,11 +287,18 @@ export default function VendorDispatch() {
                       <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">{o.retailer_city}</td>
                       <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">{o.item_count ?? '—'}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleDispatchByCity(o.retailer_city, o.retailer_state)}
-                          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium">
-                          Dispatch {o.retailer_city}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setDetail({ type: 'order', id: o.id })}
+                            className="text-xs text-blue-600 hover:underline font-medium">
+                            Details
+                          </button>
+                          <button
+                            onClick={() => handleDispatchByCity(o.retailer_city, o.retailer_state)}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium">
+                            Dispatch {o.retailer_city}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -384,7 +357,7 @@ export default function VendorDispatch() {
                   <p className="text-xs font-medium text-gray-400 mb-2">{group}</p>
                   <div className="space-y-2">
                     {grouped[group].map((d) => (
-                      <DispatchCard key={d.id} dispatch={d} onMarkDelivered={handleMarkDelivered} />
+                      <DispatchCard key={d.id} dispatch={d} onMarkDelivered={handleMarkDelivered} onShowDetail={setDetail} />
                     ))}
                   </div>
                 </div>
@@ -415,6 +388,9 @@ export default function VendorDispatch() {
           onCancel={() => { setShowCityConfirm(false); setDispatchCity(null); }}
           loading={dispatching}
         />
+      )}
+      {detail && (
+        <DetailModal type={detail.type} id={detail.id} onClose={() => setDetail(null)} />
       )}
     </div>
   );

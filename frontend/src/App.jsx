@@ -13,12 +13,14 @@ import SearchResults from './pages/SearchResults';
 import VehicleTypeStep from './pages/order/VehicleTypeStep';
 import BrandStep from './pages/order/BrandStep';
 import ModelStep from './pages/order/ModelStep';
+import PhotoOrderPage from './pages/order/PhotoOrderPage';
 import VendorHome from './pages/vendor/VendorHome';
 import VendorDispatch from './pages/vendor/VendorDispatch';
 import VendorReturns from './pages/vendor/VendorReturns';
 import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorProducts from './pages/vendor/VendorProducts';
 import VendorOrderDetail from './pages/VendorOrderDetail';
+import VendorOrders from './pages/vendor/VendorOrders';
 
 function NotFound() {
   return (
@@ -88,6 +90,7 @@ export default function App() {
           <Route path="/order/vehicle-type" element={<RequireAuth role="retailer"><VehicleTypeStep /></RequireAuth>} />
           <Route path="/order/brand"        element={<RequireAuth role="retailer"><BrandStep /></RequireAuth>} />
           <Route path="/order/model"        element={<RequireAuth role="retailer"><ModelStep /></RequireAuth>} />
+          <Route path="/order/photo"        element={<RequireAuth role="retailer"><PhotoOrderPage /></RequireAuth>} />
           <Route path="/products"           element={<RequireAuth role="retailer"><ProductList /></RequireAuth>} />
           <Route path="/search"             element={<RequireAuth role="retailer"><SearchResults /></RequireAuth>} />
           <Route path="/cart"               element={<RequireAuth role="retailer"><Cart /></RequireAuth>} />
@@ -99,6 +102,7 @@ export default function App() {
           <Route path="/vendor/returns"    element={<RequireAuth role="vendor"><VendorReturns /></RequireAuth>} />
           <Route path="/vendor/dashboard"  element={<RequireAuth role="vendor"><VendorDashboard /></RequireAuth>} />
           <Route path="/vendor/products"   element={<RequireAuth role="vendor"><VendorProducts /></RequireAuth>} />
+          <Route path="/vendor/orders"     element={<RequireAuth role="vendor"><VendorOrders /></RequireAuth>} />
           <Route path="/vendor/orders/:id" element={<RequireAuth role="vendor"><VendorOrderDetail /></RequireAuth>} />
 
           {/* Admin */}

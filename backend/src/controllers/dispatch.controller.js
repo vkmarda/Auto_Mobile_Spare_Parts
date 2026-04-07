@@ -37,7 +37,7 @@ const createDispatch = async (req, res, next) => {
       for (const orderId of orderIds) {
         await query(`INSERT INTO dispatch_orders (dispatch_id, order_id) VALUES ($1, $2)`, [dispatch.id, orderId]);
       }
-      await query(`UPDATE orders SET status = 'dispatched', updated_at = now() WHERE id = ANY($1::uuid[])`, [orderIds]);
+      await query(`UPDATE orders SET status = 'dispatched', dispatched_at = now(), updated_at = now() WHERE id = ANY($1::uuid[])`, [orderIds]);
 
       // Return deliveries for same city
       const returnsResult = await query(
@@ -59,7 +59,7 @@ const createDispatch = async (req, res, next) => {
         for (const retId of returnIds) {
           await query(`INSERT INTO return_delivery_requests (return_delivery_id, return_request_id) VALUES ($1, $2)`, [rd.id, retId]);
         }
-        await query(`UPDATE return_requests SET status = 'return_dispatched', updated_at = now() WHERE id = ANY($1::uuid[])`, [returnIds]);
+        await query(`UPDATE return_requests SET status = 'return_dispatched', dispatched_at = now(), updated_at = now() WHERE id = ANY($1::uuid[])`, [returnIds]);
         returnDelivery = { id: rd.id, return_count: returnIds.length };
       }
 
@@ -182,12 +182,12 @@ const markDispatchDelivered = async (req, res, next) => {
     const orderIdsResult = await query(`SELECT order_id FROM dispatch_orders WHERE dispatch_id = $1`, [id]);
     const orderIds = orderIdsResult.rows.map((r) => r.order_id);
     if (orderIds.length > 0) {
-      await query(`UPDATE orders SET status = 'delivered', updated_at = now() WHERE id = ANY($1::uuid[])`, [orderIds]);
+      await query(`UPDATE orders SET status = 'delivered', delivered_at = now(), updated_at = now() WHERE id = ANY($1::uuid[])`, [orderIds]);
     }
 
     // Auto-advance return_dispatched → return_received for returns linked to this dispatch
     await query(`
-      UPDATE return_requests SET status = 'return_received', updated_at = now()
+      UPDATE return_requests SET status = 'return_received', received_at = now(), updated_at = now()
       WHERE id IN (
         SELECT rdr.return_request_id
         FROM return_deliveries rd
@@ -209,8 +209,8 @@ const getDispatchSheet = async (req, res, next) => {
     const dispatch = dispatchRes.rows[0];
 
     const ordersRes = await query(`
-      SELECT o.id, o.order_number, o.status, o.notes,
-             u.name AS retailer_name, u.mobile, u.city, u.state
+      SELECT o.id, o.order_number, o.order_type, o.status, o.notes,
+             u.id AS retailer_id, u.name AS retailer_name, u.mobile, u.city, u.state
       FROM dispatch_orders do2
       JOIN orders o ON o.id = do2.order_id
       JOIN users u ON u.id = o.retailer_id
@@ -220,14 +220,25 @@ const getDispatchSheet = async (req, res, next) => {
 
     const orders = [];
     for (const order of ordersRes.rows) {
-      const itemsRes = await query(`
-        SELECT oi.quantity, p.name AS product_name, p.part_name, p.sku,
-               p.vehicle_brand, p.vehicle_model
-        FROM order_items oi
-        JOIN products p ON p.id = oi.product_id
-        WHERE oi.order_id = $1
-      `, [order.id]);
-      orders.push({ ...order, items: itemsRes.rows });
+      let items = [];
+      if (order.order_type === 'photo') {
+        const photoRes = await query(`
+          SELECT photo_url, vehicle_brand, vehicle_model, manufacture_year, quantity, note
+          FROM order_photo_items WHERE order_id = $1 ORDER BY id
+        `, [order.id]);
+        items = photoRes.rows;
+      } else {
+        const itemsRes = await query(`
+          SELECT COALESCE(oi.vehicle_brand, p.vehicle_brand) AS vehicle_brand,
+                 COALESCE(oi.vehicle_model, p.vehicle_model) AS vehicle_model,
+                 oi.quantity, p.name AS product_name, p.part_name, p.sku
+          FROM order_items oi
+          JOIN products p ON p.id = oi.product_id
+          WHERE oi.order_id = $1
+        `, [order.id]);
+        items = itemsRes.rows;
+      }
+      orders.push({ ...order, items });
     }
 
     const rdRes = await query(`SELECT * FROM return_deliveries WHERE dispatch_id = $1`, [id]);
@@ -236,7 +247,7 @@ const getDispatchSheet = async (req, res, next) => {
       const rd = rdRes.rows[0];
       const rrRes = await query(`
         SELECT rr.id, rr.return_number, rr.status, rr.reason,
-               u.name AS retailer_name, u.mobile, u.city, u.state
+               u.id AS retailer_id, u.name AS retailer_name, u.mobile, u.city, u.state
         FROM return_delivery_requests rdr
         JOIN return_requests rr ON rr.id = rdr.return_request_id
         JOIN orders o ON o.id = rr.order_id
@@ -248,10 +259,15 @@ const getDispatchSheet = async (req, res, next) => {
       const requests = [];
       for (const rr of rrRes.rows) {
         const itemsRes = await query(`
-          SELECT ri.quantity, p.name AS product_name, p.part_name, p.sku,
-                 p.vehicle_brand, p.vehicle_model
+          SELECT ri.quantity,
+                 COALESCE(p.name, '') AS product_name, COALESCE(p.part_name, '') AS part_name, COALESCE(p.sku, '') AS sku,
+                 COALESCE(oi.vehicle_brand, p.vehicle_brand, '') AS vehicle_brand,
+                 COALESCE(oi.vehicle_model, p.vehicle_model, '') AS vehicle_model,
+                 opi.photo_url, opi.vehicle_brand AS photo_brand, opi.vehicle_model AS photo_model, opi.manufacture_year
           FROM return_items ri
-          JOIN products p ON p.id = ri.product_id
+          LEFT JOIN order_items oi ON oi.id = ri.order_item_id
+          LEFT JOIN products p ON p.id = oi.product_id
+          LEFT JOIN order_photo_items opi ON opi.id = ri.order_photo_item_id
           WHERE ri.return_request_id = $1
         `, [rr.id]);
         requests.push({ ...rr, items: itemsRes.rows });

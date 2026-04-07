@@ -4,7 +4,6 @@ import { useOrderFlow } from '../context/OrderFlowContext';
 import { useCart } from '../context/CartContext';
 import { getOrders, getOrderById } from '../api/orders.api';
 
-/* ── Page ────────────────────────────────────────── */
 export default function RetailerLanding() {
   const navigate = useNavigate();
   const { resetFlow } = useOrderFlow();
@@ -18,7 +17,7 @@ export default function RetailerLanding() {
     }).catch(() => {});
   }, []);
 
-  function startOrder() {
+  function startSelectPart() {
     resetFlow();
     navigate('/order/vehicle-type');
   }
@@ -39,27 +38,49 @@ export default function RetailerLanding() {
   return (
     <div className="min-h-[calc(100vh-56px)] bg-gray-50 flex flex-col items-center justify-center px-6">
       <div className="text-center mb-8">
-        <span className="text-5xl mb-4 block">🔧</span>
-        <h1 className="text-3xl font-bold text-gray-900">Parts Order</h1>
-        <p className="text-gray-500 mt-1">Your trusted spare parts supplier</p>
+        {/* <span className="text-5xl mb-4 block"></span> */}
+        <h1 className="text-3xl font-bold text-gray-900">🔧 Purzaa</h1>
+        <p className="text-gray-500 mt-1">Your trusted automobile spare parts ordering platform </p>
       </div>
 
-      <div className="flex gap-4 w-full max-w-xl mb-4">
-        <button onClick={startOrder}
-          className="flex-1 bg-blue-600 text-white rounded-2xl p-8 shadow-lg hover:bg-blue-700 hover:scale-105 transition-all text-center">
-          <span className="text-4xl block mb-3">🛒</span>
-          <p className="text-xl font-bold">Place New Order</p>
-          <p className="text-sm text-blue-200 mt-1">Browse parts by your vehicle</p>
-        </button>
+      {/* Place new order — two options */}
+      <div className="w-full max-w-xl mb-3">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 px-1">
+          Place New Order
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={startSelectPart}
+            className="bg-blue-600 text-white rounded-2xl p-6 shadow-lg hover:bg-blue-700 hover:scale-105 transition-all text-center">
+            <span className="text-3xl block mb-2">🔍</span>
+            <p className="text-base font-bold">Select Part</p>
+            <p className="text-xs text-blue-200 mt-1">Browse by vehicle</p>
+          </button>
 
+          <button onClick={() => navigate('/order/photo')}
+            className="bg-white text-gray-900 rounded-2xl p-6 shadow-lg border-2 border-gray-200 hover:border-blue-400 hover:scale-105 transition-all text-center">
+            <span className="text-3xl block mb-2">📷</span>
+            <p className="text-base font-bold">Add Photo</p>
+            <p className="text-xs text-gray-400 mt-1">Upload & describe part</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Track orders */}
+      <div className="w-full max-w-xl mb-4">
         <button onClick={() => navigate('/orders')}
-          className="flex-1 bg-white text-gray-900 rounded-2xl p-8 shadow-lg border-2 border-gray-200 hover:border-blue-400 hover:scale-105 transition-all text-center">
-          <span className="text-4xl block mb-3">📦</span>
-          <p className="text-xl font-bold">Track My Orders</p>
-          <p className="text-sm text-gray-400 mt-1">View status of placed orders</p>
+          className="w-full bg-white text-gray-900 rounded-2xl px-6 py-4 shadow-sm border-2 border-gray-200 hover:border-blue-400 hover:scale-105 transition-all flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📦</span>
+            <div className="text-left">
+              <p className="text-base font-bold">Track My Orders</p>
+              <p className="text-xs text-gray-400">View status of placed orders</p>
+            </div>
+          </div>
+          <span className="text-gray-300 text-lg">›</span>
         </button>
       </div>
 
+      {/* Quick reorder */}
       {lastOrder && (
         <button onClick={handleReorder} disabled={reordering}
           className="w-full max-w-xl bg-white border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl px-6 py-4 text-left transition-all hover:shadow-md disabled:opacity-50">

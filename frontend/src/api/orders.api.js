@@ -14,3 +14,6 @@ export const confirmOrder = (id) =>
 
 export const markDelivered = (id) =>
   client.post(`/orders/${id}/delivered`).then((r) => r.data);
+
+export const placePhotoOrder = (data) =>
+  client.post('/orders/photo', data).then((r) => r.data);

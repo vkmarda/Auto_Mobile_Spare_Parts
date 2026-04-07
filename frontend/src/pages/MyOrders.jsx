@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getOrders, getOrderById, confirmOrder } from '../api/orders.api';
 import { createReturn, cancelReturn, getReturns } from '../api/returns.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { toWebP, uploadPhoto } from '../utils/uploadPhoto';
 
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -135,11 +136,14 @@ function StatusTimeline({ status }) {
 
 /* ── Return modal ────────────────────────────────── */
 function ReturnModal({ order, details, onClose, onSuccess }) {
-  const [reason, setReason]       = useState('');
-  const [selected, setSelected]   = useState({});
+  const fileRef                     = useRef(null);
+  const isPhotoOrder                = details.order_type === 'photo';
+  const [reason, setReason]         = useState('');
+  const [selected, setSelected]     = useState({});
   const [quantities, setQuantities] = useState({});
+  const [photos, setPhotos]         = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]         = useState('');
+  const [error, setError]           = useState('');
 
   const toggleItem = (id, checked) => {
     setSelected((p) => ({ ...p, [id]: checked }));
@@ -149,25 +153,36 @@ function ReturnModal({ order, details, onClose, onSuccess }) {
   const setQty = (id, val, max) =>
     setQuantities((p) => ({ ...p, [id]: Math.min(Math.max(1, parseInt(val) || 1), max) }));
 
+  const handleFiles = async (files) => {
+    const remaining = 5 - photos.length;
+    const toAdd = Array.from(files).slice(0, remaining);
+    const converted = await Promise.all(
+      toAdd.map(async (f) => { const blob = await toWebP(f); return { blob, preview: URL.createObjectURL(blob) }; })
+    );
+    setPhotos((p) => [...p, ...converted]);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const checkedItems = details.items.filter((i) => selected[i.id]);
     if (!checkedItems.length) { setError('Select at least one item to return'); return; }
     if (!reason.trim()) { setError('Reason is required'); return; }
+    if (photos.length === 0) { setError('At least 1 photo is required'); return; }
     setSubmitting(true); setError('');
     try {
+      const photoUrls = await Promise.all(photos.map((p) => uploadPhoto(p.blob, 'returns')));
       const result = await createReturn({
         order_id: order.id,
         reason:   reason.trim(),
+        photos:   photoUrls,
         items:    checkedItems.map((i) => ({
-          order_item_id: i.id,
-          product_id:    i.product_id,
-          quantity:      quantities[i.id] || i.quantity,
+          ...(isPhotoOrder ? { order_photo_item_id: i.id } : { order_item_id: i.id, product_id: i.product_id }),
+          quantity: quantities[i.id] || i.quantity,
         })),
       });
       onSuccess(result.return_number);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to submit return request');
+      setError(err.response?.data?.error || err.message || 'Failed to submit return request');
     } finally { setSubmitting(false); }
   };
 
@@ -180,6 +195,8 @@ function ReturnModal({ order, details, onClose, onSuccess }) {
         </div>
         {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Items — same UI for both order types */}
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Select Items to Return</p>
             <div className="space-y-2">
@@ -188,11 +205,20 @@ function ReturnModal({ order, details, onClose, onSuccess }) {
                   <input type="checkbox" checked={!!selected[item.id]}
                     onChange={(e) => toggleItem(item.id, e.target.checked)}
                     className="w-4 h-4 accent-blue-600 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{item.product_name}</p>
-                    <p className="text-xs text-gray-400 font-mono">{item.sku}</p>
-                  </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">Ordered: {item.quantity}</span>
+                  {item.photo_url ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <img src={item.photo_url} alt="Part" className="w-10 h-10 object-cover rounded-lg border border-gray-200 flex-shrink-0" />
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {[item.vehicle_brand, item.vehicle_model, item.manufacture_year].filter(Boolean).join(' · ') || 'Photo item'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{item.product_name}</p>
+                      <p className="text-xs text-gray-400 font-mono">{item.sku}</p>
+                    </div>
+                  )}
+                  <span className="text-xs text-gray-400 whitespace-nowrap">Qty: {item.quantity}</span>
                   {selected[item.id] && (
                     <input type="number" min="1" max={item.quantity}
                       value={quantities[item.id] || item.quantity}
@@ -203,22 +229,47 @@ function ReturnModal({ order, details, onClose, onSuccess }) {
               ))}
             </div>
           </div>
+
+          {/* Return photos */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">Return Photos <span className="text-red-500">*</span></label>
+              <span className="text-xs text-gray-400">{photos.length}/5</span>
+            </div>
+            {photos.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {photos.map((p, i) => (
+                  <div key={i} className="relative w-20 h-20">
+                    <img src={p.preview} alt={`Photo ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+                    <button type="button" onClick={() => setPhotos((ps) => ps.filter((_, j) => j !== i))}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center leading-none shadow">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {photos.length < 5 && (
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="w-full border-2 border-dashed border-gray-200 hover:border-amber-400 rounded-lg py-3 text-sm text-gray-400 hover:text-amber-600 transition-colors">
+                📷 {photos.length === 0 ? 'Add photos (min 1 required)' : 'Add more photos'}
+              </button>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => handleFiles(e.target.files)} />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Reason *</label>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)}
-              rows={3} required
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} required
               placeholder="Please describe the reason for return..."
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-              Cancel
-            </button>
+              className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={submitting}
               className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
               {submitting && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? 'Submitting…' : 'Submit Return Request'}
+              {submitting ? 'Uploading & submitting…' : 'Submit Return Request'}
             </button>
           </div>
         </form>
@@ -299,6 +350,9 @@ function OrderCard({ order, onRefresh, returnData }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="font-mono font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded">{order.order_number}</span>
+              {order.order_type === 'photo' && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">📷 Photo</span>
+              )}
               <Badge status={order.status} />
             </div>
             <p className="text-sm font-semibold text-gray-900">{order.vendor_name || '—'}</p>
@@ -338,62 +392,109 @@ function OrderCard({ order, onRefresh, returnData }) {
                     )}
                   </div>
                   {returnData.items?.length > 0 && (
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-gray-400 bg-gray-50 border-b border-gray-100">
-                          <th className="text-left px-3 py-1.5 font-medium">Part</th>
-                          <th className="text-left px-3 py-1.5 font-medium hidden sm:table-cell">SKU</th>
-                          <th className="text-right px-3 py-1.5 font-medium">Qty</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {returnData.items.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-50 last:border-0">
-                            <td className="px-3 py-1.5 text-gray-700">{item.product_name}</td>
-                            <td className="px-3 py-1.5 text-gray-400 font-mono hidden sm:table-cell">{item.sku}</td>
-                            <td className="px-3 py-1.5 text-right font-medium text-gray-800">{item.quantity}</td>
-                          </tr>
+                    returnData.items[0]?.photo_url ? (
+                      <div className="px-3 py-2 space-y-1.5">
+                        {returnData.items.map((item, i) => (
+                          <div key={item.id || i} className="flex items-center gap-2">
+                            <img src={item.photo_url} alt="Part" className="w-10 h-10 object-cover rounded border border-gray-200 flex-shrink-0" />
+                            <p className="text-xs text-gray-700 truncate">
+                              {[item.vehicle_brand, item.vehicle_model, item.manufacture_year].filter(Boolean).join(' · ')}
+                            </p>
+                            <span className="text-xs text-gray-500 ml-auto flex-shrink-0">×{item.quantity}</span>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-gray-400 bg-gray-50 border-b border-gray-100">
+                            <th className="text-left px-3 py-1.5 font-medium">Part</th>
+                            <th className="text-left px-3 py-1.5 font-medium hidden sm:table-cell">SKU</th>
+                            <th className="text-right px-3 py-1.5 font-medium">Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {returnData.items.map((item) => (
+                            <tr key={item.id} className="border-b border-gray-50 last:border-0">
+                              <td className="px-3 py-1.5 text-gray-700">{item.product_name}</td>
+                              <td className="px-3 py-1.5 text-gray-400 font-mono hidden sm:table-cell">{item.sku}</td>
+                              <td className="px-3 py-1.5 text-right font-medium text-gray-800">{item.quantity}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )
+                  )}
+                  {returnData.photos?.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-3 pb-3 pt-2">
+                      {returnData.photos.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                          <img src={url} alt={`Return photo ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-amber-200 hover:opacity-80 transition-opacity" />
+                        </a>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs sm:text-sm min-w-[320px]">
-                  <thead>
-                    <tr className="text-xs text-gray-400 border-b border-gray-200">
-                      <th className="text-left pb-2 pr-3 font-medium">Part</th>
-                      <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Brand</th>
-                      <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Model</th>
-                      <th className="text-left pb-2 pr-3 font-medium">SKU</th>
-                      <th className="text-right pb-2 font-medium">Qty</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {details.items.map((item) => (
-                      <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                        <td className="py-1.5 pr-3 text-gray-800 font-medium">
-                          {item.part_name || item.product_name}
-                        </td>
-                        <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">
-                          {item.vehicle_brand || '—'}
-                        </td>
-                        <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">
-                          {item.vehicle_model || '—'}
-                        </td>
-                        <td className="py-1.5 pr-3 text-gray-400 font-mono text-xs">
-                          {item.sku}
-                        </td>
-                        <td className="py-1.5 text-right font-semibold text-gray-800">
-                          {item.quantity}
-                        </td>
+              {details.order_type === 'photo' ? (
+                /* Photo order items */
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm min-w-[320px]">
+                    <thead>
+                      <tr className="text-xs text-gray-400 border-b border-gray-200">
+                        <th className="text-left pb-2 pr-3 font-medium">Photo</th>
+                        <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Brand</th>
+                        <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Model</th>
+                        <th className="text-left pb-2 pr-3 font-medium">Year</th>
+                        <th className="text-right pb-2 font-medium">Qty</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {details.items.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-100 last:border-0">
+                          <td className="py-1.5 pr-3">
+                            <a href={item.photo_url} target="_blank" rel="noopener noreferrer">
+                              <img src={item.photo_url} alt="Part" className="w-10 h-10 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity" />
+                            </a>
+                          </td>
+                          <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_brand || '—'}</td>
+                          <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_model || '—'}</td>
+                          <td className="py-1.5 pr-3 text-gray-400 font-mono text-xs">{item.manufacture_year || '—'}</td>
+                          <td className="py-1.5 text-right font-semibold text-gray-800">{item.quantity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* Standard order items */
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm min-w-[320px]">
+                    <thead>
+                      <tr className="text-xs text-gray-400 border-b border-gray-200">
+                        <th className="text-left pb-2 pr-3 font-medium">Part</th>
+                        <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Brand</th>
+                        <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Model</th>
+                        <th className="text-left pb-2 pr-3 font-medium">SKU</th>
+                        <th className="text-right pb-2 font-medium">Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {details.items.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-100 last:border-0">
+                          <td className="py-1.5 pr-3 text-gray-800 font-medium">{item.part_name || item.product_name}</td>
+                          <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_brand || '—'}</td>
+                          <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_model || '—'}</td>
+                          <td className="py-1.5 pr-3 text-gray-400 font-mono text-xs">{item.sku}</td>
+                          <td className="py-1.5 text-right font-semibold text-gray-800">{item.quantity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              )}
               {details.notes && <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>}
               <div className="flex flex-wrap gap-2 pt-1">
                 {order.status === 'delivered' && (
@@ -523,7 +624,7 @@ export default function MyOrders() {
           )}
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-4">
           <div className="hidden md:grid px-4 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wide gap-x-3"
             style={{ gridTemplateColumns: COLS }}>
             <span>Order</span><span>Vendor</span><span>Date</span>

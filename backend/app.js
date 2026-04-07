@@ -9,7 +9,8 @@ const vehiclesRouter = require('./src/routes/vehicles.routes');
 const adminRoutes    = require('./src/routes/admin.routes');
 const dispatchRoutes = require('./src/routes/dispatch.routes');
 const returnsRoutes  = require('./src/routes/returns.routes');
-
+const vendorsRoutes  = require('./src/routes/vendors.routes');
+const details=require('./src/routes/details.routes');
 const app = express();
 
 const corsOptions = {
@@ -45,7 +46,8 @@ app.use('/api/v1/vehicles', vehiclesRouter);
 app.use('/api/v1/admin',      adminRoutes);
 app.use('/api/v1/dispatches', dispatchRoutes);
 app.use('/api/v1/returns',    returnsRoutes);
-
+app.use('/api/v1/vendors',   vendorsRoutes);
+app.use('/api/v1/details', details);
 app.use(errorHandler);
 
 module.exports = app;
