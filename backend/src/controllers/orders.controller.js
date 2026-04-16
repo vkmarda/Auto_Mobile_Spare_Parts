@@ -130,7 +130,7 @@ const getOrders = async (req, res, next) => {
     if (role === 'vendor') {
       const result = await query(
         `SELECT o.id, o.order_number, o.status, o.created_at, o.updated_at, o.notes,
-                o.order_type,
+                o.order_type, o.retailer_id, o.rejection_reason,
                 u.name AS retailer_name, u.email AS retailer_email,
                 u.mobile AS retailer_mobile, u.city AS retailer_city, u.state AS retailer_state,
                 COUNT(oi.id) AS item_count,
@@ -149,7 +149,7 @@ const getOrders = async (req, res, next) => {
 
     const result = await query(
       `SELECT o.id, o.order_number, o.status, o.notes, o.created_at,
-              o.order_type,
+              o.order_type, o.rejection_reason,
               v.name AS vendor_name,
               COUNT(oi.id) AS item_count,
               ARRAY_AGG(p.name ORDER BY oi.id) FILTER (WHERE p.name IS NOT NULL) AS product_names
@@ -176,8 +176,10 @@ const getOrderById = async (req, res, next) => {
     const ownerField = role === 'vendor' ? 'o.vendor_id' : 'o.retailer_id';
     const orderResult = await query(
       `SELECT o.id, o.order_number, o.status, o.notes, o.created_at, o.updated_at,
-              o.order_type,
+              o.order_type, o.rejection_reason,
+              o.accepted_at, o.dispatched_at, o.delivered_at, o.confirmed_at,
               v.name AS vendor_name, v.id AS vendor_id,
+              v.mobile AS vendor_mobile, v.email AS vendor_email,
               u.name AS retailer_name, u.email AS retailer_email, u.mobile AS retailer_mobile,
               u.city AS retailer_city, u.state AS retailer_state
        FROM orders o
@@ -245,11 +247,15 @@ const acceptOrder = async (req, res, next) => {
 const rejectOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { reason } = req.body || {};
     const { order, error, status } = await checkOrderAccess(id, req.user.id);
     if (error) return res.status(status).json({ error });
     if (order.status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be rejected' });
 
-    await query(`UPDATE orders SET status = 'rejected', rejected_at = now(), updated_at = now() WHERE id = $1`, [id]);
+    await query(
+      `UPDATE orders SET status = 'rejected', rejection_reason = $2, rejected_at = now(), updated_at = now() WHERE id = $1`,
+      [id, reason || null]
+    );
     notify({ mobile: order.retailer_mobile, event: 'order_rejected', data: { order_number: order.order_number, vendor_name: req.user.name } })
       .catch((e) => console.error('Notify error:', e));
     res.json({ id, status: 'rejected' });
@@ -324,4 +330,16 @@ const deliverOrder = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder };
+const cancelOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const retailer_id = req.user.id;
+    const result = await query(`SELECT * FROM orders WHERE id = $1 AND retailer_id = $2`, [id, retailer_id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    if (result.rows[0].status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be cancelled' });
+    await query(`UPDATE orders SET status = 'cancelled', updated_at = now() WHERE id = $1`, [id]);
+    res.json({ id, status: 'cancelled' });
+  } catch (err) { next(err); }
+};
+
+module.exports = { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder, cancelOrder };

@@ -4,60 +4,92 @@ import { getOrderById } from '../api/orders.api';
 import StatusBadge from './StatusBadge';
 import DetailModal from './DetailModal';
 
-const BORDER = { pending: 'border-l-yellow-400', accepted: 'border-l-green-500', rejected: 'border-l-red-400' };
+const BORDER = { pending: 'border-l-amber-400', accepted: 'border-l-sky-400', rejected: 'border-l-red-400', dispatched: 'border-l-violet-400', delivered: 'border-l-teal-400', confirmed: 'border-l-green-500' };
 
 // cb | Order | Phone | Retailer | Date | Units | Location | Status | Action | Toggle
 export const COLS = '20px 90px 110px 1fr 130px 55px 120px 90px 140px 60px';
 
-export default function VendorOrderCard({ order, onAccept, onReject, checkable, checked, onCheck }) {
-  const navigate              = useNavigate();
-  const [details, setDetails]   = useState(null);
-  const [acting, setActing]     = useState(null);
+const REJECT_REASONS = ['Out of stock', 'Duplicate order', 'Incomplete details', 'Price issue'];
+
+export default function VendorOrderCard({ order, onAccept, onReject, checkable, checked, onCheck, defaultExpanded }) {
+  const navigate                  = useNavigate();
+  const [details, setDetails]     = useState(null);
+  const [acting, setActing]       = useState(null);
   const [showDetail, setShowDetail] = useState(false);
-  const isPending               = order.status === 'pending';
-  const [expanded, setExpanded] = useState(isPending);
+  const [rejectMode, setRejectMode] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const isPending                 = order.status === 'pending';
+  const [expanded, setExpanded]   = useState(defaultExpanded !== undefined ? defaultExpanded : isPending);
 
   useEffect(() => {
     getOrderById(order.id).then(setDetails).catch(() => {});
   }, [order.id]);
 
-  const handle = async (action) => {
+  const handle = async (action, reason) => {
     setActing(action);
     try {
-      action === 'accept' ? await onAccept(order.id) : await onReject(order.id);
-    } finally {
-      setActing(null);
-    }
+      if (action === 'accept') await onAccept(order.id);
+      else { await onReject(order.id, reason); setRejectMode(false); setRejectReason(''); }
+    } finally { setActing(null); }
   };
 
   const date     = new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const daysDiff = Math.floor((Date.now() - new Date(order.created_at)) / 86400000);
-  const age      = daysDiff === 0 ? 'Today' : `${daysDiff}d ago`;
+  const ageText  = daysDiff === 0 ? 'Today' : `${daysDiff}d ago`;
+  const ageColor = daysDiff >= 5 ? 'text-red-500 font-semibold' : daysDiff >= 3 ? 'text-orange-500 font-semibold' : 'text-gray-400';
   const location = [order.retailer_city, order.retailer_state].filter(Boolean).join(', ');
   const totalQty = details?.items?.reduce((s, i) => s + i.quantity, 0) ?? order.item_count;
 
-  const ActionCell = () => (
-    <div className="flex items-center gap-1 flex-wrap">
-      {isPending && onAccept && (
-        <>
-          <button onClick={() => handle('accept')} disabled={!!acting}
-            className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium flex items-center gap-0.5">
-            {acting === 'accept' ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✓'} Accept
+  const ActionCell = () => {
+    if (rejectMode) return (
+      <div className="flex flex-col gap-1.5 min-w-[200px]">
+        <div className="flex flex-wrap gap-1">
+          {REJECT_REASONS.map((r) => (
+            <button key={r} onClick={() => setRejectReason(r)}
+              className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${rejectReason === r ? 'bg-red-100 border-red-300 text-red-700 font-medium' : 'border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-600'}`}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+          placeholder="Or type a reason…"
+          className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-300 w-full" />
+        <div className="flex gap-1.5">
+          <button onClick={() => handle('reject', rejectReason)} disabled={!!acting}
+            className="text-xs bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-3 py-1 rounded-lg font-medium flex items-center gap-1">
+            {acting === 'reject' && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Confirm Reject
           </button>
-          <button onClick={() => handle('reject')} disabled={!!acting}
-            className="text-xs bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium flex items-center gap-0.5">
-            {acting === 'reject' ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✕'} Reject
+          <button onClick={() => { setRejectMode(false); setRejectReason(''); }}
+            className="text-xs border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1 rounded-lg font-medium">
+            Cancel
           </button>
-        </>
-      )}
-      {order.status === 'accepted' && (
-        <button onClick={() => navigate('/vendor/dispatch')}
-          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg font-medium whitespace-nowrap">
-          Dispatch →
-        </button>
-      )}
-    </div>
-  );
+        </div>
+      </div>
+    );
+    return (
+      <div className="flex items-center gap-1 flex-wrap">
+        {isPending && onAccept && (
+          <>
+            <button onClick={() => handle('accept')} disabled={!!acting}
+              className="text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium flex items-center gap-0.5">
+              {acting === 'accept' ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '✓'} Accept
+            </button>
+            <button onClick={() => setRejectMode(true)} disabled={!!acting}
+              className="text-xs bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
+              ✕ Reject
+            </button>
+          </>
+        )}
+        {order.status === 'accepted' && (
+          <button onClick={() => navigate('/vendor/dispatch')}
+            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg font-medium whitespace-nowrap">
+            Dispatch →
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const ToggleBtn = () => (
     <button onClick={() => setExpanded(v => !v)}
@@ -67,7 +99,7 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
   );
 
   return (
-    <div className={`bg-white border-l-4 overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
+    <div className={`bg-white border border-gray-200 border-l-4 rounded-xl shadow-sm overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
 
       {/* ── Mobile ── */}
       <div className="md:hidden px-4 py-3">
@@ -89,7 +121,7 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
               {order.retailer_name}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {date} · {totalQty} unit{totalQty !== 1 ? 's' : ''}
+              {date} · <span className={ageColor}>{ageText}</span> · {totalQty} unit{totalQty !== 1 ? 's' : ''}
               {location && ` · ${location}`}
             </p>
           </div>
@@ -125,7 +157,7 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
         {/* Date */}
         <div>
           <p className="text-xs text-gray-500">{date}</p>
-          <p className="text-xs text-gray-400">{age}</p>
+          <p className={`text-xs ${ageColor}`}>{ageText}</p>
         </div>
         {/* Units */}
         <span className="text-sm text-gray-500">{totalQty}</span>
@@ -170,7 +202,7 @@ export default function VendorOrderCard({ order, onAccept, onReject, checkable, 
         ) : (
           <>
             {/* Sub-header — desktop, same COLS grid */}
-            <div className="hidden md:grid px-4 pt-2 pb-1 gap-x-3 text-xs font-medium text-gray-400 border-b border-gray-100"
+            <div className="hidden md:grid px-4 pt-2 pb-1 gap-x-3 text-xs font-medium text-gray-500 border-b border-gray-100"
               style={{ gridTemplateColumns: COLS }}>
               <div /><span>Brand</span><span>Part Name</span><span>Model</span>
               <span /><span>Qty</span><span /><span /><span /><span />

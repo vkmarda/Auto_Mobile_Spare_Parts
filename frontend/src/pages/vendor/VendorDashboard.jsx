@@ -2,8 +2,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   getDemand, getAllOrders, acceptOrder, rejectOrder,
   getStats, bulkAcceptOrders, getSalesChart, getProductStats,
+  getLastDispatchesByCity,
 } from '../../api/vendor.api';
 import { getProducts } from '../../api/products.api';
+import PendingActionsByCity from '../../components/PendingActionsByCity';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
@@ -13,14 +15,14 @@ import StatCard from '../../components/StatCard';
 import VendorOrderCard, { COLS } from '../../components/VendorOrderCard';
 
 const STATUS_CARDS = [
-  { key: 'all',             label: 'All Orders',  bg: 'bg-gray-100',   text: 'text-gray-700',   border: 'border-gray-400',   activeBg: 'bg-gray-200',   ring: 'ring-gray-400'   },
-  { key: 'pending',         label: 'Pending',     bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-400', activeBg: 'bg-yellow-200', ring: 'ring-yellow-400' },
-  { key: 'accepted',        label: 'Accepted',    bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-400',  activeBg: 'bg-green-200',  ring: 'ring-green-400'  },
-  { key: 'rejected',        label: 'Rejected',    bg: 'bg-red-100',    text: 'text-red-700',    border: 'border-red-400',    activeBg: 'bg-red-200',    ring: 'ring-red-400'    },
-  { key: 'dispatched',      label: 'Dispatched',  bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-400', activeBg: 'bg-purple-200', ring: 'ring-purple-400' },
-  { key: 'delivered',       label: 'Delivered',   bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-400', activeBg: 'bg-orange-200', ring: 'ring-orange-400' },
-  { key: 'confirmed',       label: 'Confirmed',   bg: 'bg-emerald-100',text: 'text-emerald-700',border: 'border-emerald-400',activeBg: 'bg-emerald-200',ring: 'ring-emerald-400'},
-  { key: 'return_requested',label: 'Returns',     bg: 'bg-amber-100',  text: 'text-amber-700',  border: 'border-amber-400',  activeBg: 'bg-amber-200',  ring: 'ring-amber-400'  },
+  { key: 'all',             label: 'All Orders',  bg: 'bg-gray-50',    text: 'text-gray-700',   border: 'border-l-gray-400',   activeBg: 'bg-gray-100',   ring: 'ring-gray-300'   },
+  { key: 'pending',         label: 'Pending',     bg: 'bg-amber-50',   text: 'text-amber-800',  border: 'border-l-amber-400',  activeBg: 'bg-amber-100',  ring: 'ring-amber-300'  },
+  { key: 'accepted',        label: 'Accepted',    bg: 'bg-sky-50',     text: 'text-sky-800',    border: 'border-l-sky-400',    activeBg: 'bg-sky-100',    ring: 'ring-sky-300'    },
+  { key: 'rejected',        label: 'Rejected',    bg: 'bg-red-50',     text: 'text-red-700',    border: 'border-l-red-400',    activeBg: 'bg-red-100',    ring: 'ring-red-300'    },
+  { key: 'dispatched',      label: 'Dispatched',  bg: 'bg-violet-50',  text: 'text-violet-800', border: 'border-l-violet-400', activeBg: 'bg-violet-100', ring: 'ring-violet-300' },
+  { key: 'delivered',       label: 'Delivered',   bg: 'bg-teal-50',    text: 'text-teal-800',   border: 'border-l-teal-400',   activeBg: 'bg-teal-100',   ring: 'ring-teal-300'   },
+  { key: 'confirmed',       label: 'Confirmed',   bg: 'bg-green-50',   text: 'text-green-800',  border: 'border-l-green-500',  activeBg: 'bg-green-100',  ring: 'ring-green-300'  },
+  { key: 'return_requested',label: 'Returns',     bg: 'bg-orange-50',  text: 'text-orange-700', border: 'border-l-orange-400', activeBg: 'bg-orange-100', ring: 'ring-orange-300' },
 ];
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -40,6 +42,7 @@ export default function VendorDashboard() {
   const [demand, setDemand]         = useState([]);
   const [orders, setOrders]         = useState([]);
   const [products, setProducts]     = useState([]);
+  const [lastDispatchByCity, setLastDispatchByCity] = useState({});
   const [tab, setTab]               = useState('all');
   const [selected, setSelected]     = useState(new Set());
   const [loading, setLoading]       = useState(true);
@@ -60,8 +63,8 @@ export default function VendorDashboard() {
     } finally { setChartsLoading(false); }
   }, [days]);
 
-  const fetchData = () => Promise.all([getAllOrders(), getDemand(), getProducts()])
-    .then(([o, d, p]) => { setOrders(o); setDemand(d); setProducts(p); });
+  const fetchData = () => Promise.all([getAllOrders(), getDemand(), getProducts(), getLastDispatchesByCity()])
+    .then(([o, d, p, ldc]) => { setOrders(o); setDemand(d); setProducts(p); setLastDispatchByCity(ldc); });
 
   useEffect(() => {
     Promise.all([fetchStats(), fetchData()]).then(() => setLoading(false));
@@ -70,7 +73,7 @@ export default function VendorDashboard() {
   useEffect(() => { if (!loading) fetchStats(); }, [days]);
 
   const handleAccept = async (id) => { await acceptOrder(id); await fetchData(); };
-  const handleReject = async (id) => { await rejectOrder(id); await fetchData(); };
+  const handleReject = async (id, reason) => { await rejectOrder(id, reason); await fetchData(); };
 
   const RETURN_STATUSES = ['return_requested','return_accepted','return_dispatched','return_received','return_settled','return_cancelled'];
   const POST_ACCEPTED   = ['accepted','dispatched','delivered','confirmed',...RETURN_STATUSES];
@@ -121,7 +124,11 @@ export default function VendorDashboard() {
   };
 
   if (loading) return (
-    <div className="px-4 sm:px-6 py-8 max-w-7xl mx-auto space-y-4">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-4">
+      <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-24 animate-pulse" />)}
+      </div>
       {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />)}
     </div>
   );
@@ -143,15 +150,7 @@ export default function VendorDashboard() {
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-        <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-          <option value={7}>Last 7 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-        </select>
-      </div>
+      
 
       {alerts.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-wrap gap-2">
@@ -164,15 +163,60 @@ export default function VendorDashboard() {
         </div>
       )}
 
+      
+      {/* Pending Actions by City */}
+      <div>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-1 h-5 bg-blue-600 rounded-full" />
+            <h2 className="text-base font-semibold text-gray-900">Pending Orders by City</h2>
+          </div>
+          {counts.pending > 0 && (
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+              {counts.pending}
+            </span>
+          )}
+        </div>
+        <PendingActionsByCity
+          orders={orders}
+          lastDispatchByCity={lastDispatchByCity}
+          onAccept={handleAccept}
+          onReject={handleReject}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-gray-900">Performance</h2>
+        <div className="flex items-center gap-2">
+          {Object.keys(lastDispatchByCity).length > 0 && (() => {
+            const earliest = Math.min(...Object.values(lastDispatchByCity).map((d) => new Date(d).getTime()));
+            const daysSince = Math.max(1, Math.floor((Date.now() - earliest) / 86400000));
+            return (
+              <button onClick={() => setDays(daysSince)}
+                className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${days === daysSince ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                Since last dispatch
+              </button>
+            );
+          })()}
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard title="Unique Parts" value={stats?.unique_parts ?? '—'} iconType="parts" trend={partsTrend} />
         <StatCard title="Total Qty" value={stats?.total_quantity ?? '—'} iconType="qty" trend={qtyTrend} sparkData={qtySpark} />
         <StatCard title="Fulfillment Rate" value={fulfillmentRate !== null ? `${fulfillmentRate}%` : 'N/A'} iconType="rate" />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+
+       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-6">
-          <div className="w-full sm:w-[45%]">
+          {/*<div className="w-full sm:w-[45%]">
             <p className="text-sm font-semibold text-gray-700 mb-3">Orders by Product (qty)</p>
             {chartsLoading ? <div className="h-[260px]"><Spinner /></div>
               : !hasPieData ? <div className="flex items-center justify-center h-[260px] text-sm text-gray-400">No sales data</div>
@@ -203,7 +247,7 @@ export default function VendorDashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               )}
-          </div>
+          </div> */}
           <div className="hidden sm:block w-px bg-gray-100 self-stretch" />
           <div className="w-full sm:w-[55%]">
             <p className="text-sm font-semibold text-gray-700 mb-3">Top Products by Quantity</p>
@@ -261,31 +305,52 @@ export default function VendorDashboard() {
       </div>
 
       <div ref={demandRef}>
-        <h2 className="text-base font-bold text-gray-900 mb-3">
-          Pending Demand {demand.length > 0 && <span className="text-gray-400 font-normal">({demand.length} products)</span>}
-        </h2>
+        <div className="flex items-center gap-3 mb-5">
+          <h2 className="text-base font-semibold text-gray-900">Pending Demand</h2>
+          {demand.length > 0 && (
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">
+              {demand.length} product{demand.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
         {demand.length === 0 ? <p className="text-sm text-gray-400">No pending demand.</p> : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[320px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>{['Product', 'SKU', 'Pending Qty'].map((h, i) => (
-                    <th key={h} className={`px-4 py-3 text-gray-600 font-medium ${i > 1 ? 'text-right' : 'text-left'}`}>{h}</th>
-                  ))}</tr>
+                  <tr className="text-xs text-gray-500 font-medium">
+                    <th className="text-left px-4 py-3">Product</th>
+                    <th className="text-left px-4 py-3">SKU</th>
+                    <th className="text-left px-4 py-3 hidden sm:table-cell">By City</th>
+                    <th className="text-right px-4 py-3">Pending Qty</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {demand.map((r) => (
-                    <tr key={r.id} className={`border-b border-gray-100 last:border-0 ${parseInt(r.total_quantity_pending) > 10 ? 'bg-yellow-50' : ''}`}>
-                      <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
-                      <td className="px-4 py-3 text-gray-500">{r.sku}</td>
-                      <td className="px-4 py-3 text-right font-bold text-gray-900">{r.total_quantity_pending}</td>
-                    </tr>
-                  ))}
+                  {demand.map((r) => {
+                    const cityBreakdown = r.city_breakdown ? Object.entries(r.city_breakdown).sort((a, b) => b[1] - a[1]) : [];
+                    return (
+                      <tr key={r.id} className={`border-b border-gray-100 last:border-0 ${parseInt(r.total_quantity_pending) > 10 ? 'bg-amber-50' : ''}`}>
+                        <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
+                        <td className="px-4 py-3 text-gray-500 font-mono text-xs">{r.sku}</td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          <span className="flex flex-wrap gap-1">
+                            {cityBreakdown.map(([city, qty]) => (
+                              <span key={city} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full">
+                                {city}: {qty}
+                              </span>
+                            ))}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-gray-900">{r.total_quantity_pending}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50 border-t border-gray-200">
                     <td className="px-4 py-3 font-bold text-gray-900">Total</td>
                     <td className="px-4 py-3" />
+                    <td className="px-4 py-3 hidden sm:table-cell" />
                     <td className="px-4 py-3 text-right font-bold text-gray-900">
                       {demand.reduce((s, r) => s + parseInt(r.total_quantity_pending), 0)}
                     </td>
@@ -298,13 +363,13 @@ export default function VendorDashboard() {
       </div>
 
       <div>
-        <h2 className="text-base font-bold text-gray-900 mb-3">Order Status Summary</h2>
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Order Status</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {STATUS_CARDS.map((card) => {
             const active = tab === card.key;
             return (
               <button key={card.key} onClick={() => { setTab(card.key); clearSel(); }}
-                className={`text-left rounded-xl border-l-4 px-4 py-3 cursor-pointer transition-all shadow-sm ${card.border} ${active ? `${card.activeBg} ring-2 ${card.ring}` : `${card.bg} hover:${card.activeBg}`}`}>
+                className={`text-left rounded-xl border border-l-4 px-4 py-4 cursor-pointer transition-all shadow-sm ${card.border} border-gray-200 ${active ? `${card.activeBg} ring-2 ${card.ring}` : `${card.bg} hover:opacity-90`}`}>
                 <p className={`text-2xl font-bold ${card.text}`}>{counts[card.key] ?? 0}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{card.label}</p>
               </button>
@@ -315,7 +380,10 @@ export default function VendorDashboard() {
 
       <div ref={ordersRef}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 className="text-base font-bold text-gray-900">All Orders <span className="text-gray-400 font-normal">({filtered.length})</span></h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-semibold text-gray-900">All Orders</h2>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">{filtered.length}</span>
+          </div>
           <div className="flex items-center gap-3">
             {showBulk && pendingOrders.length > 0 && (
               <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -336,10 +404,13 @@ export default function VendorDashboard() {
           </div>
         </div>
         {filtered.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4">{tab === 'all' ? 'No orders yet.' : `No ${tab} orders.`}</p>
+          <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
+            <p className="text-3xl mb-3">{tab === 'all' ? '📭' : '✅'}</p>
+            <p className="text-sm font-semibold text-gray-700">{tab === 'all' ? 'No orders yet' : `No ${tab} orders`}</p>
+          </div>
         ) : (
           <div className="space-y-1.5">
-            <div className="hidden md:grid px-4 py-1.5 gap-x-3 text-xs font-medium text-gray-900 uppercase tracking-wide"
+            <div className="hidden md:grid px-4 py-2 gap-x-3 text-xs font-medium text-gray-500"
               style={{ gridTemplateColumns: COLS }}>
               <div /><span>Order</span><span>Phone</span><span>Retailer</span>
               <span>Date</span><span>Units</span><span>Location</span><span>Status</span><span>Action</span><span />
@@ -355,17 +426,20 @@ export default function VendorDashboard() {
       </div>
 
       <div>
-        <h2 className="text-base font-bold text-gray-900 mb-3">
-          Top Retailers <span className="text-gray-400 font-normal text-sm">· Last {days} days</span>
-        </h2>
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-base font-semibold text-gray-900">Most Recent Retailers</h2>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">Last {days}d</span>
+        </div>
         {!stats?.top_retailers?.length ? <p className="text-sm text-gray-400">No orders in this period.</p> : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[320px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>{['Rank', 'Retailer Name', 'Location', 'Orders'].map((h, i) => (
-                    <th key={h} className={`px-4 py-3 text-gray-600 font-medium ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
-                  ))}</tr>
+                  <tr className="text-xs text-gray-500 font-medium">
+                    {['#', 'Retailer', 'Location', 'Orders', 'Last Order'].map((h, i) => (
+                      <th key={h} className={`px-4 py-3 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
                   {stats.top_retailers.map((r, i) => (
@@ -374,6 +448,9 @@ export default function VendorDashboard() {
                       <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
                       <td className="px-4 py-3 text-gray-500">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{r.order_count}</td>
+                      <td className="px-4 py-3 text-right text-xs text-gray-400">
+                        {r.last_order_at ? new Date(r.last_order_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

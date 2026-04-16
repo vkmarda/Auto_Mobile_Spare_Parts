@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getOrders, getOrderById, confirmOrder } from '../api/orders.api';
+import { getOrders, getOrderById, confirmOrder, cancelOrder } from '../api/orders.api';
 import { createReturn, cancelReturn, getReturns } from '../api/returns.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -10,38 +10,61 @@ const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const BORDER = {
-  pending:           'border-l-yellow-400',
-  accepted:          'border-l-blue-400',
-  dispatched:        'border-l-purple-400',
-  delivered:         'border-l-orange-400',
+  pending:           'border-l-amber-400',
+  accepted:          'border-l-sky-400',
+  dispatched:        'border-l-violet-400',
+  delivered:         'border-l-teal-400',
   confirmed:         'border-l-green-500',
   rejected:          'border-l-red-400',
+  cancelled:         'border-l-gray-300',
   return_requested:  'border-l-amber-400',
-  return_accepted:   'border-l-blue-400',
-  return_dispatched:  'border-l-purple-400',
+  return_accepted:   'border-l-sky-400',
+  return_dispatched:  'border-l-violet-400',
   return_received:    'border-l-teal-400',
   return_settled:     'border-l-green-500',
   return_cancelled:   'border-l-gray-300',
 };
 
 const BADGE_CLS = {
-  pending:           'bg-yellow-100 text-yellow-700',
-  accepted:          'bg-blue-100 text-blue-700',
-  dispatched:        'bg-purple-100 text-purple-700',
-  delivered:         'bg-orange-100 text-orange-700',
-  confirmed:         'bg-green-100 text-green-700',
+  pending:           'bg-amber-100 text-amber-800',
+  accepted:          'bg-sky-100 text-sky-800',
+  dispatched:        'bg-violet-100 text-violet-800',
+  delivered:         'bg-teal-100 text-teal-800',
+  confirmed:         'bg-green-100 text-green-800',
   rejected:          'bg-red-100 text-red-700',
-  return_requested:  'bg-amber-100 text-amber-700',
-  return_accepted:   'bg-blue-100 text-blue-700',
-  return_dispatched:  'bg-purple-100 text-purple-700',
-  return_received:    'bg-teal-100 text-teal-700',
-  return_settled:     'bg-green-100 text-green-700',
+  cancelled:         'bg-gray-100 text-gray-500',
+  return_requested:  'bg-amber-100 text-amber-800',
+  return_accepted:   'bg-sky-100 text-sky-800',
+  return_dispatched:  'bg-violet-100 text-violet-800',
+  return_received:    'bg-teal-100 text-teal-800',
+  return_settled:     'bg-green-100 text-green-800',
   return_cancelled:   'bg-gray-100 text-gray-500',
 };
 
 const BADGE_LABELS = {
+  pending:           'Pending — Awaiting vendor confirmation',
+  accepted:          'Accepted — Vendor confirmed, preparing for dispatch',
+  dispatched:        'Dispatched — On its way to you',
+  delivered:         'Delivered — Confirm when received',
+  confirmed:         'Confirmed — Order complete',
+  rejected:          'Rejected — Vendor declined',
+  cancelled:         'Cancelled',
+  return_requested:  'Return Requested',
+  return_accepted:   'Return Accepted',
+  return_dispatched:  'Return in Transit',
+  return_received:    'Return Received',
+  return_settled:     'Return Settled',
+  return_cancelled:   'Return Cancelled',
+};
+
+const BADGE_SHORT = {
+  pending:           'Pending',
+  accepted:          'Accepted',
+  dispatched:        'Dispatched',
   delivered:         'Delivered',
   confirmed:         'Confirmed',
+  rejected:          'Rejected',
+  cancelled:         'Cancelled',
   return_requested:  'Return Requested',
   return_accepted:   'Return Accepted',
   return_dispatched:  'Return in Transit',
@@ -59,6 +82,7 @@ const TABS = [
   { key: 'confirmed',  label: 'Confirmed' },
   { key: 'rejected',   label: 'Rejected' },
   { key: 'returns',    label: 'Returns' },
+  { key: 'cancelled',  label: 'Cancelled' },
 ];
 
 const EMPTY = {
@@ -76,11 +100,22 @@ const COLS = '110px 1fr 120px 1fr 110px 130px';
 
 const RETURN_STATES = ['return_requested', 'return_accepted', 'return_dispatched', 'return_received', 'return_settled', 'return_cancelled'];
 
+const STATUS_LEGEND = [
+  { status: 'pending',    label: 'Pending',    desc: 'Sent to vendor, waiting for confirmation' },
+  { status: 'accepted',   label: 'Accepted',   desc: 'Vendor confirmed, will be dispatched soon' },
+  { status: 'dispatched', label: 'Dispatched', desc: 'On its way to you' },
+  { status: 'delivered',  label: 'Delivered',  desc: 'Please confirm you received the parts' },
+  { status: 'confirmed',  label: 'Confirmed',  desc: 'Order complete — you can request a return if needed' },
+  { status: 'rejected',   label: 'Rejected',   desc: 'Vendor could not fulfill this order' },
+];
+
 function Badge({ status }) {
-  const label = BADGE_LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1);
+  const short = BADGE_SHORT[status] || status.charAt(0).toUpperCase() + status.slice(1);
+  const full  = BADGE_LABELS[status];
   return (
-    <span className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full ${BADGE_CLS[status] || 'bg-gray-100 text-gray-600'}`}>
-      {label}
+    <span title={full}
+      className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-full cursor-default ${BADGE_CLS[status] || 'bg-gray-100 text-gray-600'}`}>
+      {short}
     </span>
   );
 }
@@ -291,8 +326,12 @@ function OrderCard({ order, onRefresh, returnData }) {
   const [reordering, setReordering]   = useState(false);
   const [confirming, setConfirming]   = useState(false);
   const [cancelling, setCancelling]   = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
   const [showReturn, setShowReturn]   = useState(false);
   const [returnSuccess, setReturnSuccess] = useState('');
+  const [toast, setToast]             = useState('');
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => {
     getOrderById(order.id)
@@ -314,7 +353,15 @@ function OrderCard({ order, onRefresh, returnData }) {
 
   const handleConfirm = async () => {
     setConfirming(true);
-    try { await confirmOrder(order.id); onRefresh(); } finally { setConfirming(false); }
+    try { await confirmOrder(order.id); showToast('Delivery confirmed!'); onRefresh(); } finally { setConfirming(false); }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm('Cancel this pending order?')) return;
+    setCancellingOrder(true);
+    try { await cancelOrder(order.id); showToast('Order cancelled.'); onRefresh(); }
+    catch (err) { showToast(err.response?.data?.error || 'Could not cancel order'); }
+    finally { setCancellingOrder(false); }
   };
 
   const handleCancelReturn = async () => {
@@ -343,8 +390,21 @@ function OrderCard({ order, onRefresh, returnData }) {
 
   return (
     <>
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg">
+          {toast}
+        </div>
+      )}
+      <div className={`rounded-xl shadow-sm border border-l-4 overflow-hidden ${
+        order.status === 'delivered' ? 'bg-teal-50 border-teal-200 border-l-teal-400' :
+        `bg-white border-gray-200 ${BORDER[order.status] || 'border-l-gray-300'}`
+      }`}>
 
+        {order.status === 'delivered' && (
+          <div className="bg-teal-100 border-b border-teal-200 px-4 py-2 text-xs text-teal-800 font-medium">
+            📦 Parts arrived? Tap <span className="font-bold">Confirm Receipt</span> to close this order.
+          </div>
+        )}
         {/* Header */}
         <div className="px-4 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -355,11 +415,19 @@ function OrderCard({ order, onRefresh, returnData }) {
               )}
               <Badge status={order.status} />
             </div>
-            <p className="text-sm font-semibold text-gray-900">{order.vendor_name || '—'}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900">{order.vendor_name || '—'}</p>
+              {details?.vendor_mobile && (
+                <a href={`tel:${details.vendor_mobile}`} className="text-xs text-blue-600 hover:underline">{details.vendor_mobile}</a>
+              )}
+            </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {date} · {age}
               {totalQty !== null && <span> · {totalQty} unit{totalQty !== 1 ? 's' : ''}</span>}
             </p>
+            {order.status === 'rejected' && order.rejection_reason && (
+              <p className="text-xs text-red-500 mt-0.5 italic">Reason: {order.rejection_reason}</p>
+            )}
           </div>
           <button onClick={handleReorder} disabled={reordering || !details}
             className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-40 font-medium flex-shrink-0 mt-1">
@@ -496,18 +564,35 @@ function OrderCard({ order, onRefresh, returnData }) {
 
               )}
               {details.notes && <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>}
+              {/* Status timestamps (item 39) */}
+              {details && (details.accepted_at || details.dispatched_at || details.delivered_at) && (
+                <div className="flex flex-wrap gap-3 text-xs text-gray-400 pt-1">
+                  {details.accepted_at  && <span>Accepted: {fmtDate(details.accepted_at)}</span>}
+                  {details.dispatched_at && <span>Dispatched: {fmtDate(details.dispatched_at)}</span>}
+                  {details.delivered_at  && <span>Delivered: {fmtDate(details.delivered_at)}</span>}
+                  {details.confirmed_at  && <span>Confirmed: {fmtDate(details.confirmed_at)}</span>}
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2 pt-1">
                 {order.status === 'delivered' && (
                   <button onClick={handleConfirm} disabled={confirming}
                     className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
                     {confirming && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {confirming ? 'Confirming…' : 'Confirm Receipt'}
+                    {confirming ? 'Confirming…' : '✓ Confirm Receipt'}
                   </button>
                 )}
                 {order.status === 'confirmed' && (
                   <button onClick={handleReturnOpen}
                     className="text-sm border border-amber-500 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded-lg font-medium">
                     Request Return
+                  </button>
+                )}
+                {order.status === 'pending' && (
+                  <button onClick={handleCancelOrder} disabled={cancellingOrder}
+                    className="text-sm border border-red-300 text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
+                    {cancellingOrder && <span className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />}
+                    {cancellingOrder ? 'Cancelling…' : 'Cancel Order'}
                   </button>
                 )}
                 {order.status === 'return_requested' && (
@@ -527,6 +612,29 @@ function OrderCard({ order, onRefresh, returnData }) {
         <ReturnModal order={order} details={details} onClose={() => setShowReturn(false)} onSuccess={handleReturnSuccess} />
       )}
     </>
+  );
+}
+
+function StatusLegend() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50">
+        <span className="text-xs font-medium text-gray-500">What do the statuses mean?</span>
+        <span className={`text-gray-400 text-xs transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <div className="border-t border-gray-100 divide-y divide-gray-50">
+          {STATUS_LEGEND.map(({ status, label, desc }) => (
+            <div key={status} className="flex items-center gap-3 px-4 py-2">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${BADGE_CLS[status] || 'bg-gray-100 text-gray-600'}`}>{label}</span>
+              <span className="text-xs text-gray-500">{desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -557,12 +665,13 @@ export default function MyOrders() {
     confirmed:  orders.filter((o) => o.status === 'confirmed').length,
     rejected:   orders.filter((o) => o.status === 'rejected').length,
     returns:    orders.filter((o) => o.status.startsWith('return_')).length,
+    cancelled:  orders.filter((o) => o.status === 'cancelled').length,
   };
 
   const filtered = tab === 'returns'
     ? orders.filter((o) => o.status.startsWith('return_'))
     : tab === 'all' ? orders : orders.filter((o) => o.status === tab);
-  const empty = EMPTY[tab] || EMPTY.all;
+  const empty = EMPTY[tab] || { emoji: '📦', msg: 'No orders here.', sub: null, link: false };
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto space-y-3">
@@ -580,6 +689,8 @@ export default function MyOrders() {
         <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
         {user?.city && <p className="text-sm text-gray-400 mt-0.5">📍 {[user.city, user.state].filter(Boolean).join(', ')}</p>}
       </div>
+
+      <StatusLegend />
 
       <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
         <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">

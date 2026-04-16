@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAllOrders } from '../../api/vendor.api';
 import { getReturns } from '../../api/returns.api';
 import { createDispatch, getDispatches, markDispatchDelivered, getDispatchSheet } from '../../api/dispatch.api';
@@ -16,25 +16,47 @@ const fmtDateKey = (d) => {
   return 'Earlier';
 };
 
-function ConfirmModal({ city, orderCount, cityCount, returnCount, onConfirm, onCancel, loading }) {
+function ConfirmModal({ city, orderCount, cityCount, returnCount, retailers, unconfirmedCount, onConfirm, onCancel, loading }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h2 className="text-base font-bold text-gray-900 mb-3">
+        <h2 className="text-base font-bold text-gray-900 mb-4">
           {city ? `Dispatch ${city}` : 'Confirm Dispatch'}
         </h2>
-        <p className="text-sm text-gray-600 mb-2">
+
+        {/* Summary line */}
+        <p className="text-sm text-gray-600 mb-3">
           {city ? (
-            <>Dispatch <span className="font-semibold text-blue-600">{orderCount} order{orderCount !== 1 ? 's' : ''}</span> to <span className="font-semibold">{city}</span>.</>
+            <><span className="font-semibold text-blue-600">{orderCount} order{orderCount !== 1 ? 's' : ''}</span> to <span className="font-semibold">{city}</span></>
           ) : (
-            <>Create <span className="font-semibold text-blue-600">{cityCount} dispatch{cityCount !== 1 ? 'es' : ''}</span> for <span className="font-semibold">{orderCount} orders</span>.</>
+            <><span className="font-semibold text-blue-600">{cityCount} dispatch{cityCount !== 1 ? 'es' : ''}</span> · <span className="font-semibold">{orderCount} orders</span></>
           )}
         </p>
-        {returnCount > 0 && (
-          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
-            Also includes <span className="font-semibold">{returnCount}</span> return pickup{returnCount !== 1 ? 's' : ''}.
+
+        {/* Retailer checklist */}
+        {retailers?.length > 0 && (
+          <div className="bg-gray-50 rounded-lg border border-gray-100 divide-y divide-gray-100 mb-3">
+            {retailers.map((r) => (
+              <div key={r.name} className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm text-gray-700">{r.name}</span>
+                <span className="text-xs text-gray-400">{r.count} order{r.count !== 1 ? 's' : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Warnings */}
+        {unconfirmedCount > 0 && (
+          <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mb-3">
+            ⚠️ <span className="font-semibold">{unconfirmedCount}</span> previous delivery{unconfirmedCount !== 1 ? 'ies' : 'y'} to this city not yet confirmed by retailers.
           </p>
         )}
+        {returnCount > 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+            ↩ Also picking up <span className="font-semibold">{returnCount}</span> return{returnCount !== 1 ? 's' : ''}.
+          </p>
+        )}
+
         <div className="flex gap-3 mt-4">
           <button onClick={onCancel} className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
             Cancel
@@ -42,7 +64,7 @@ function ConfirmModal({ city, orderCount, cityCount, returnCount, onConfirm, onC
           <button onClick={onConfirm} disabled={loading}
             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
             {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {loading ? 'Creating…' : 'Confirm'}
+            {loading ? 'Creating…' : 'Confirm Dispatch'}
           </button>
         </div>
       </div>
@@ -52,10 +74,68 @@ function ConfirmModal({ city, orderCount, cityCount, returnCount, onConfirm, onC
 
 
 
+function SheetModal({ dispatchId, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDispatchSheet(dispatchId).then(setData).finally(() => setLoading(false));
+  }, [dispatchId]);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white">
+          <h2 className="text-base font-bold text-gray-900">Dispatch Sheet</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !data ? (
+          <p className="text-sm text-gray-400 text-center py-10">Could not load sheet.</p>
+        ) : (
+          <div className="px-5 py-4 space-y-4">
+            <div className="text-sm text-gray-600">
+              <p><span className="font-medium">Dispatch:</span> {data.dispatch?.dispatch_number}</p>
+              <p><span className="font-medium">City:</span> {data.dispatch?.city}</p>
+              <p><span className="font-medium">Date:</span> {fmtDate(data.dispatch?.created_at)}</p>
+            </div>
+            {(data.orders || []).map((o) => (
+              <div key={o.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                  <span className="font-mono text-xs font-bold text-gray-700">{o.order_number}</span>
+                  <span className="text-sm text-gray-700">{o.retailer_name}</span>
+                  {o.retailer_mobile && (
+                    <a href={`tel:${o.retailer_mobile}`} className="text-xs text-blue-600 ml-auto">{o.retailer_mobile}</a>
+                  )}
+                </div>
+                {(o.items || []).map((item, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-1.5 border-b border-gray-50 last:border-0 text-xs">
+                    <span className="text-gray-700">{item.product_name || item.part_name}</span>
+                    <span className="font-semibold text-gray-800">×{item.quantity}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
   const [expanded, setExpanded] = useState(false);
   const [acting, setActing]     = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
+
+  const daysSinceDispatch = dispatch.status === 'dispatched'
+    ? Math.floor((Date.now() - new Date(dispatch.created_at)) / 86400000)
+    : null;
+  const isStale = daysSinceDispatch !== null && daysSinceDispatch >= 5;
 
   const handleDeliver = async () => {
     setActing(true);
@@ -71,7 +151,12 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className={`bg-white rounded-xl border shadow-sm overflow-hidden ${isStale ? 'border-orange-300' : 'border-gray-200'}`}>
+      {isStale && (
+        <div className="bg-orange-50 border-b border-orange-200 px-4 py-1.5 text-xs text-orange-700 font-medium">
+          ⚠️ Dispatched {daysSinceDispatch} days ago — delivery not yet confirmed
+        </div>
+      )}
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
         <span className="font-mono font-bold text-sm text-gray-800">{dispatch.dispatch_number}</span>
@@ -85,10 +170,14 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
           {' · '}{fmtDate(dispatch.created_at)}
         </span>
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setShowSheet(true)}
+            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-medium">
+            View Sheet
+          </button>
           <button onClick={handlePrint} disabled={printing}
             className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 flex items-center gap-1.5">
             {printing && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
-            {printing ? 'Preparing…' : '🖨 Print Sheet'}
+            {printing ? 'Preparing…' : '🖨 Print'}
           </button>
           {dispatch.status === 'dispatched' && (
             <button onClick={handleDeliver} disabled={acting}
@@ -103,6 +192,8 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
           </button>
         </div>
       </div>
+
+      {showSheet && <SheetModal dispatchId={dispatch.id} onClose={() => setShowSheet(false)} />}
 
       {/* Expanded details */}
       {expanded && (
@@ -169,6 +260,7 @@ export default function VendorDispatch() {
   const [dispatchCity, setDispatchCity]   = useState(null);
   const [showCityConfirm, setShowCityConfirm] = useState(false);
   const [detail, setDetail] = useState(null); // { type, id }
+  const [historyCity, setHistoryCity] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -182,6 +274,31 @@ export default function VendorDispatch() {
 
   const accepted       = orders.filter((o) => o.status === 'accepted');
   const returnAccepted = returns.filter((r) => r.status === 'return_accepted');
+
+  const overdueOrders = accepted.filter((o) =>
+    Math.floor((Date.now() - new Date(o.created_at)) / 86400000) >= 3
+  );
+
+  const dispatchCities = useMemo(() =>
+    [...new Set(dispatches.map((d) => d.city).filter(Boolean))].sort(),
+    [dispatches]
+  );
+  const filteredDispatches = useMemo(() =>
+    historyCity ? dispatches.filter((d) => d.city === historyCity) : dispatches,
+    [dispatches, historyCity]
+  );
+
+  const retailersForCity = (city) => {
+    const map = {};
+    accepted.filter((o) => o.retailer_city === city).forEach((o) => {
+      if (!map[o.retailer_id]) map[o.retailer_id] = { name: o.retailer_name, count: 0 };
+      map[o.retailer_id].count++;
+    });
+    return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  const unconfirmedForCity = (city) =>
+    orders.filter((o) => o.status === 'delivered' && o.retailer_city === city).length;
 
   const ordersByCity = {};
   for (const o of accepted) {
@@ -223,18 +340,19 @@ export default function VendorDispatch() {
     await load();
   };
 
-  const grouped = { Today: [], Yesterday: [], Earlier: [] };
-  for (const d of dispatches) grouped[fmtDateKey(d.created_at)].push(d);
-
   if (loading) return (
-    <div className="px-4 sm:px-6 py-6 max-w-4xl mx-auto space-y-3">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-4">
+      <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse" />
       {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-14 animate-pulse" />)}
     </div>
   );
 
   return (
-    <div className="px-4 sm:px-6 py-6 max-w-4xl mx-auto space-y-8">
-      <h1 className="text-xl font-bold text-gray-900">Dispatch</h1>
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Dispatch</h1>
+        <p className="text-sm text-gray-500 mt-1">Send accepted orders and track deliveries by city</p>
+      </div>
 
       {successMsg && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">
@@ -246,22 +364,38 @@ export default function VendorDispatch() {
           {error}
         </div>
       )}
+      {overdueOrders.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-700">
+          ⏰ <span className="font-semibold">{overdueOrders.length} accepted order{overdueOrders.length !== 1 ? 's' : ''}</span> {overdueOrders.length === 1 ? 'has' : 'have'} been waiting 3+ days without dispatch.
+          {' '}<span className="text-orange-500">{overdueOrders.map((o) => o.order_number).join(', ')}</span>
+        </div>
+      )}
 
       {/* Ready to dispatch */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest">Ready to Dispatch</h2>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-1 h-5 bg-blue-600 rounded-full" />
+              <h2 className="text-base font-semibold text-gray-900">Ready to Dispatch</h2>
+            </div>
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${accepted.length > 0 ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'}`}>
+              {accepted.length}
+            </span>
+          </div>
           {accepted.length > 0 && (
             <button onClick={() => setShowModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-3 rounded-xl">
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl">
               Dispatch All
             </button>
           )}
         </div>
 
         {accepted.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 py-10 text-center">
-            <p className="text-gray-400 text-sm">No accepted orders to dispatch.</p>
+          <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
+            <p className="text-3xl mb-3">✅</p>
+            <p className="text-sm font-semibold text-gray-700">Nothing to dispatch</p>
+            <p className="text-xs text-gray-400 mt-1">All accepted orders have been sent</p>
           </div>
         ) : (
           <>
@@ -269,12 +403,12 @@ export default function VendorDispatch() {
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-4">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-400 bg-gray-50 border-b border-gray-200">
-                    <th className="text-left px-4 py-2 font-medium">Order</th>
-                    <th className="text-left px-4 py-2 font-medium">Retailer</th>
-                    <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">City</th>
-                    <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Items</th>
-                    <th className="text-right px-4 py-2 font-medium">Action</th>
+                  <tr className="text-xs text-gray-500 font-medium bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-4 py-3">Order</th>
+                    <th className="text-left px-4 py-3">Retailer</th>
+                    <th className="text-left px-4 py-3 hidden sm:table-cell">City</th>
+                    <th className="text-left px-4 py-3 hidden sm:table-cell">Items</th>
+                    <th className="text-right px-4 py-3">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -346,23 +480,48 @@ export default function VendorDispatch() {
 
       {/* Dispatch history */}
       <section>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-4">Dispatch History</h2>
-        {dispatches.length === 0 ? (
-          <p className="text-sm text-gray-400">No dispatches yet.</p>
+        <div className="flex flex-wrap items-center gap-3 mb-5">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-1 h-5 bg-blue-600 rounded-full" />
+              <h2 className="text-base font-semibold text-gray-900">Dispatch History</h2>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">
+              {filteredDispatches.length}
+            </span>
+          </div>
+          {dispatchCities.length > 0 && (
+            <select value={historyCity} onChange={(e) => setHistoryCity(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">All cities</option>
+              {dispatchCities.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+          {historyCity && (
+            <button onClick={() => setHistoryCity('')} className="text-xs text-gray-400 hover:text-red-500">Clear</button>
+          )}
+        </div>
+        {filteredDispatches.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
+            <p className="text-3xl mb-3">📦</p>
+            <p className="text-sm font-semibold text-gray-700">No dispatches yet</p>
+            <p className="text-xs text-gray-400 mt-1">Dispatched orders will appear here</p>
+          </div>
         ) : (
           <div className="space-y-6">
-            {['Today', 'Yesterday', 'Earlier'].map((group) =>
-              grouped[group].length > 0 ? (
+            {['Today', 'Yesterday', 'Earlier'].map((group) => {
+              const groupItems = filteredDispatches.filter((d) => fmtDateKey(d.created_at) === group);
+              return groupItems.length > 0 ? (
                 <div key={group}>
                   <p className="text-xs font-medium text-gray-400 mb-2">{group}</p>
                   <div className="space-y-2">
-                    {grouped[group].map((d) => (
+                    {groupItems.map((d) => (
                       <DispatchCard key={d.id} dispatch={d} onMarkDelivered={handleMarkDelivered} onShowDetail={setDetail} />
                     ))}
                   </div>
                 </div>
-              ) : null
-            )}
+              ) : null;
+            })}
           </div>
         )}
       </section>
@@ -373,6 +532,8 @@ export default function VendorDispatch() {
           orderCount={accepted.length}
           cityCount={Object.keys(ordersByCity).length}
           returnCount={Object.values(returnsByCity).reduce((s, g) => s + g.returns.length, 0)}
+          retailers={null}
+          unconfirmedCount={null}
           onConfirm={() => runDispatch(null, null)}
           onCancel={() => setShowModal(false)}
           loading={dispatching}
@@ -384,6 +545,8 @@ export default function VendorDispatch() {
           orderCount={ordersByCity[dispatchCity.city]?.orders.length || 0}
           cityCount={1}
           returnCount={returnsByCity[dispatchCity.city]?.returns.length || 0}
+          retailers={retailersForCity(dispatchCity.city)}
+          unconfirmedCount={unconfirmedForCity(dispatchCity.city)}
           onConfirm={() => runDispatch(dispatchCity.city, dispatchCity.state)}
           onCancel={() => { setShowCityConfirm(false); setDispatchCity(null); }}
           loading={dispatching}

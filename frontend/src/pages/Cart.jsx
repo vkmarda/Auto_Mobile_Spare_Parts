@@ -47,34 +47,47 @@ export default function Cart() {
 
   if (placedOrders) {
     const multi = placedOrders.length > 1;
+    const steps = [
+      { icon: '📋', label: 'Order received', sub: 'Your order is with the vendor', done: true },
+      { icon: '✅', label: 'Vendor confirms', sub: 'Usually within a few hours', done: false },
+      { icon: '🚚', label: 'Dispatched to you', sub: 'Typically within 1–3 business days', done: false },
+      { icon: '📦', label: 'Collect your parts', sub: 'Pick up when notified', done: false },
+    ];
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-sm w-full">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✅</span>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 max-w-sm w-full">
+          <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">✅</span>
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">
             {multi ? `${placedOrders.length} Orders Placed!` : 'Order Placed!'}
           </h2>
-          <div className="mb-5 space-y-1">
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
             {placedOrders.map((o) => (
-              <p key={o.id} className="text-sm text-gray-500">
-                <span className="font-mono font-bold text-gray-800">{o.order_number}</span>
-              </p>
+              <span key={o.id} className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
+                {o.order_number}
+              </span>
             ))}
           </div>
-          <div className="space-y-3 text-left mb-6">
-            {[
-              { icon: '✅', label: 'Orders received by suppliers' },
-              { icon: '⏳', label: 'Suppliers will confirm shortly' },
-              { icon: '📦', label: 'Parts will be ready for pickup' },
-            ].map(({ icon, label }) => (
-              <div key={label} className="flex items-center gap-3 text-sm text-gray-600">
-                <span className="text-base">{icon}</span>
-                <span>{label}</span>
+
+          {/* Timeline */}
+          <div className="text-left space-y-0 mb-6">
+            {steps.map((s, i) => (
+              <div key={s.label} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${s.done ? 'bg-green-100' : 'bg-gray-100'}`}>
+                    {s.icon}
+                  </div>
+                  {i < steps.length - 1 && <div className="w-px flex-1 bg-gray-100 my-1" />}
+                </div>
+                <div className="pb-4 pt-1 min-w-0">
+                  <p className={`text-sm font-semibold ${s.done ? 'text-green-700' : 'text-gray-700'}`}>{s.label}</p>
+                  <p className="text-xs text-gray-400">{s.sub}</p>
+                </div>
               </div>
             ))}
           </div>
+
           <button onClick={() => navigate('/orders')}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-sm">
             Track My Orders

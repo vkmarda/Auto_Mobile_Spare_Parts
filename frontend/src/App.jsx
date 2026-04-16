@@ -21,6 +21,8 @@ import VendorDashboard from './pages/vendor/VendorDashboard';
 import VendorProducts from './pages/vendor/VendorProducts';
 import VendorOrderDetail from './pages/VendorOrderDetail';
 import VendorOrders from './pages/vendor/VendorOrders';
+import VendorRetailers from './pages/vendor/VendorRetailers';
+import VendorRetailerDetail from './pages/vendor/VendorRetailerDetail';
 
 function NotFound() {
   return (
@@ -97,13 +99,16 @@ export default function App() {
           <Route path="/orders"             element={<RequireAuth role="retailer"><MyOrders /></RequireAuth>} />
 
           {/* Vendor */}
-          <Route path="/vendor"            element={<RequireAuth role="vendor"><VendorHome /></RequireAuth>} />
+          <Route path="/vendor"            element={<RequireAuth role="vendor"><VendorDashboard /></RequireAuth>} />
+          <Route path="/vendor/pending"    element={<RequireAuth role="vendor"><VendorHome /></RequireAuth>} />
           <Route path="/vendor/dispatch"   element={<RequireAuth role="vendor"><VendorDispatch /></RequireAuth>} />
           <Route path="/vendor/returns"    element={<RequireAuth role="vendor"><VendorReturns /></RequireAuth>} />
           <Route path="/vendor/dashboard"  element={<RequireAuth role="vendor"><VendorDashboard /></RequireAuth>} />
           <Route path="/vendor/products"   element={<RequireAuth role="vendor"><VendorProducts /></RequireAuth>} />
           <Route path="/vendor/orders"     element={<RequireAuth role="vendor"><VendorOrders /></RequireAuth>} />
-          <Route path="/vendor/orders/:id" element={<RequireAuth role="vendor"><VendorOrderDetail /></RequireAuth>} />
+          <Route path="/vendor/orders/:id"       element={<RequireAuth role="vendor"><VendorOrderDetail /></RequireAuth>} />
+          <Route path="/vendor/retailers"        element={<RequireAuth role="vendor"><VendorRetailers /></RequireAuth>} />
+          <Route path="/vendor/retailers/:id"    element={<RequireAuth role="vendor"><VendorRetailerDetail /></RequireAuth>} />
 
           {/* Admin */}
           <Route path="/admin" element={<RequireAuth role="admin"><AdminPanel /></RequireAuth>} />

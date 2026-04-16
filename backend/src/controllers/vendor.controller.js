@@ -5,7 +5,17 @@ const getDemand = async (req, res, next) => {
     const vendor_id = req.user.id;
     const result = await query(
       `SELECT p.id, p.name, p.sku,
-              SUM(oi.quantity) AS total_quantity_pending
+              SUM(oi.quantity) AS total_quantity_pending,
+              (
+                SELECT json_object_agg(city, qty) FROM (
+                  SELECT u2.city, SUM(oi2.quantity)::int AS qty
+                  FROM order_items oi2
+                  JOIN orders o2 ON o2.id = oi2.order_id
+                  JOIN users u2 ON u2.id = o2.retailer_id
+                  WHERE oi2.product_id = p.id AND o2.status = 'pending' AND o2.vendor_id = $1 AND u2.city IS NOT NULL
+                  GROUP BY u2.city
+                ) sub
+              ) AS city_breakdown
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
        JOIN products p ON p.id = oi.product_id
@@ -35,11 +45,11 @@ const getStats = async (req, res, next) => {
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
       query(`SELECT COUNT(DISTINCT o.retailer_id) AS unique_retailers FROM orders o
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1`, [vendor_id]),
-      query(`SELECT u.name, u.city, u.state, COUNT(o.id) AS order_count
+      query(`SELECT u.name, u.city, u.state, COUNT(o.id) AS order_count, MAX(o.created_at) AS last_order_at
              FROM orders o
              JOIN users u ON u.id = o.retailer_id
              WHERE o.created_at >= now()-interval '${interval}' AND o.status!='rejected' AND o.vendor_id=$1
-             GROUP BY u.id,u.name,u.city,u.state ORDER BY order_count DESC LIMIT 5`, [vendor_id]),
+             GROUP BY u.id,u.name,u.city,u.state ORDER BY MAX(o.created_at) DESC LIMIT 5`, [vendor_id]),
       query(`SELECT COALESCE(SUM(oi.quantity),0) AS total_quantity FROM order_items oi
              JOIN orders o ON o.id = oi.order_id
              WHERE o.created_at >= now()-interval '${prevInterval}' AND o.created_at < now()-interval '${interval}'
@@ -61,7 +71,7 @@ const getStats = async (req, res, next) => {
       total_quantity:       parseInt(qtyRes.rows[0].total_quantity),
       unique_parts:         parseInt(partsRes.rows[0].unique_parts),
       unique_retailers:     parseInt(retailersRes.rows[0].unique_retailers),
-      top_retailers:        topRetailersRes.rows.map((r) => ({ ...r, order_count: parseInt(r.order_count) })),
+      top_retailers:        topRetailersRes.rows.map((r) => ({ ...r, order_count: parseInt(r.order_count), last_order_at: r.last_order_at })),
       prev_total_quantity:  parseInt(prevQtyRes.rows[0].total_quantity),
       prev_unique_parts:    parseInt(prevPartsRes.rows[0].unique_parts),
       dispatched_count:     statusMap['dispatched'] || 0,
@@ -152,4 +162,17 @@ const getProductStats = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getDemand, getStats, bulkAcceptOrders, getSalesChart, getProductStats };
+const getLastDispatchesByCity = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT DISTINCT ON (city) city, created_at AS last_dispatched_at
+       FROM dispatches
+       ORDER BY city, created_at DESC`
+    );
+    const map = {};
+    for (const row of result.rows) map[row.city] = row.last_dispatched_at;
+    res.json(map);
+  } catch (err) { next(err); }
+};
+
+module.exports = { getDemand, getStats, bulkAcceptOrders, getSalesChart, getProductStats, getLastDispatchesByCity };

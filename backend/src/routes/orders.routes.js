@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder } = require('../controllers/orders.controller');
+const { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder, cancelOrder } = require('../controllers/orders.controller');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 
@@ -13,5 +13,6 @@ router.post('/:id/dispatch',   auth, requireRole('vendor'),             dispatch
 router.post('/:id/deliver',    auth, requireRole('vendor'),             deliverOrder);
 router.post('/:id/delivered',  auth, requireRole('vendor', 'retailer'), markDelivered);
 router.post('/:id/confirm',    auth, requireRole('retailer'),           confirmOrder);
+router.post('/:id/cancel',     auth, requireRole('retailer'),           cancelOrder);
 
 module.exports = router;

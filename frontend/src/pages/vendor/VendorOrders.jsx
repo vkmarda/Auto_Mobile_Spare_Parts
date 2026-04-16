@@ -60,6 +60,8 @@ export default function VendorOrders() {
     return map;
   }, [returns]);
 
+  const [productSearch, setProductSearch] = useState('');
+
   const retailers = useMemo(() => [...new Set(orders.map((o) => o.retailer_name))].sort(), [orders]);
   const cities    = useMemo(() => [...new Set(orders.map((o) => o.retailer_city).filter(Boolean))].sort(), [orders]);
 
@@ -72,6 +74,11 @@ export default function VendorOrders() {
       const matchReturn = (returnsByOrder[o.id] || []).some((r) => r.return_number?.toUpperCase().startsWith(p));
       if (!matchOrder && !matchReturn) return false;
     }
+    if (productSearch) {
+      const ps = productSearch.toLowerCase();
+      const match = (o.product_names || []).some((n) => n.toLowerCase().includes(ps));
+      if (!match) return false;
+    }
     if (dateFrom && new Date(o.created_at) < new Date(dateFrom)) return false;
     if (dateTo   && new Date(o.created_at) > new Date(dateTo + 'T23:59:59')) return false;
     if (status !== 'all') {
@@ -79,7 +86,7 @@ export default function VendorOrders() {
       if (o.status !== status) return false;
     }
     return true;
-  }), [orders, retailer, city, numPrefix, dateFrom, dateTo, status, returnsByOrder]);
+  }), [orders, retailer, city, numPrefix, productSearch, dateFrom, dateTo, status, returnsByOrder]);
 
   // Shared: fetch expanded rows for all filtered orders
   const buildRows = async () => {
@@ -161,43 +168,56 @@ export default function VendorOrders() {
   const tabCount = (key) => key === 'all' ? orders.length : (counts[key] ?? 0);
 
   if (loading) return (
-    <div className="px-4 sm:px-6 py-6 max-w-6xl mx-auto space-y-3">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-4">
+      <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse" />
+      <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
       {[...Array(5)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-12 animate-pulse" />)}
     </div>
   );
 
   return (
-    <div className="px-4 sm:px-6 py-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Orders</h1>
-        <div className="flex items-center gap-2">
-          <h2>Generate report</h2>
-          <button onClick={downloadCsv} disabled={exporting || exporting2}
-            className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
-            {exporting && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
-            {exporting ? 'Preparing…' : '↓ CSV'}
-          </button>
-          <button onClick={downloadPdf} disabled={exporting || exporting2}
-            className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
-            {exporting2 && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
-            {exporting2 ? 'Preparing…' : '🖨 PDF'}
-          </button>
+    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-6">
+      <div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">All Orders</h1>
+            <p className="text-sm text-gray-500 mt-1">Complete order history with filters and export</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 mt-1">
+            <span className="text-xs text-gray-400 hidden sm:block">Export</span>
+            <button onClick={downloadCsv} disabled={exporting || exporting2}
+              className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              {exporting && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
+              {exporting ? 'Preparing…' : '↓ CSV'}
+            </button>
+            <button onClick={downloadPdf} disabled={exporting || exporting2}
+              className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              {exporting2 && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
+              {exporting2 ? 'Preparing…' : '🖨 PDF'}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Status tabs */}
-      <div className="bg-white rounded-xl shadow-sm p-1 inline-flex gap-1 flex-wrap">
-        {STATUSES.map(({ key, label }) => (
-          <button key={key} onClick={() => setStatus(key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              status === key ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}>
-            {label}
-            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 ${status === key ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-              {tabCount(key)}
-            </span>
-          </button>
-        ))}
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-1 inline-flex gap-0.5 min-w-full sm:min-w-0">
+          {STATUSES.map(({ key, label }) => (
+            <button key={key} onClick={() => setStatus(key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                status === key
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+              }`}>
+              {label}
+              <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 min-w-[20px] text-center ${
+                status === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {tabCount(key)}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filters */}
@@ -206,6 +226,11 @@ export default function VendorOrders() {
           value={numPrefix} onChange={(e) => setNumPrefix(e.target.value)}
           placeholder="Order / Return no."
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+        />
+        <input
+          value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
+          placeholder="Search product name…"
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
         />
         <Select value={retailer} onChange={setRetailer} options={retailers} placeholder="All retailers" />
         <Select value={city}     onChange={setCity}     options={cities}    placeholder="All cities" />
@@ -216,8 +241,8 @@ export default function VendorOrders() {
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
-        {(retailer || city || numPrefix || dateFrom || dateTo) && (
-          <button onClick={() => { setRetailer(''); setCity(''); setNumPrefix(''); setDateFrom(''); setDateTo(''); }}
+        {(retailer || city || numPrefix || productSearch || dateFrom || dateTo) && (
+          <button onClick={() => { setRetailer(''); setCity(''); setNumPrefix(''); setProductSearch(''); setDateFrom(''); setDateTo(''); }}
             className="text-xs text-gray-400 hover:text-red-500 font-medium">
             Clear filters
           </button>
@@ -228,19 +253,22 @@ export default function VendorOrders() {
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
-          <p className="text-gray-400 text-sm">No orders match the current filters.</p>
+          <p className="text-3xl mb-3">🔍</p>
+          <p className="text-sm font-semibold text-gray-700">No orders found</p>
+          <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-gray-50 border-b border-gray-200">
-                <tr className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                <tr className="text-xs text-gray-500 font-medium">
                   <th className="text-left px-4 py-3">Order</th>
                   <th className="text-left px-4 py-3">Retailer</th>
                   <th className="text-left px-4 py-3 hidden sm:table-cell">City</th>
                   <th className="text-left px-4 py-3 hidden sm:table-cell">Date</th>
                   <th className="text-left px-4 py-3">Status</th>
+                  <th className="text-left px-4 py-3 hidden md:table-cell">Notes</th>
                   <th className="text-left px-4 py-3">Return</th>
                   <th className="text-right px-4 py-3"></th>
                 </tr>
@@ -258,6 +286,15 @@ export default function VendorOrders() {
                       <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">{o.retailer_city || '—'}</td>
                       <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">{fmtDate(o.created_at)}</td>
                       <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {o.status === 'rejected' && o.rejection_reason ? (
+                          <span className="text-xs text-red-500 italic">{o.rejection_reason}</span>
+                        ) : (o.product_names?.length > 0) ? (
+                          <span className="text-xs text-gray-400 truncate max-w-[160px] block" title={o.product_names.join(', ')}>
+                            {o.product_names.slice(0, 2).join(', ')}{o.product_names.length > 2 ? ` +${o.product_names.length - 2}` : ''}
+                          </span>
+                        ) : <span className="text-xs text-gray-300">—</span>}
+                      </td>
                       <td className="px-4 py-3">
                         {latestReturn ? (
                           <button onClick={() => setDetail({ type: 'return', id: latestReturn.id })}

@@ -17,3 +17,6 @@ export const markDelivered = (id) =>
 
 export const placePhotoOrder = (data) =>
   client.post('/orders/photo', data).then((r) => r.data);
+
+export const cancelOrder = (id) =>
+  client.post(`/orders/${id}/cancel`).then((r) => r.data);
