@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getRetailers } from '../../api/vendor.api';
+import Skeleton from '../../components/Skeleton';
 
 export default function VendorRetailers() {
   const [retailers, setRetailers] = useState([]);
@@ -22,8 +23,8 @@ export default function VendorRetailers() {
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-4">
-      <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse" />
-      {[...Array(6)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-14 animate-pulse" />)}
+      <Skeleton className="h-8 w-40" />
+      {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14" />)}
     </div>
   );
 

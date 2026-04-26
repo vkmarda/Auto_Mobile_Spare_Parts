@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   getDemand, getAllOrders, acceptOrder, rejectOrder,
   getStats, bulkAcceptOrders, getSalesChart, getProductStats,
@@ -13,6 +14,7 @@ import {
 } from 'recharts';
 import StatCard from '../../components/StatCard';
 import VendorOrderCard, { COLS } from '../../components/VendorOrderCard';
+import Skeleton from '../../components/Skeleton';
 
 const STATUS_CARDS = [
   { key: 'all',             label: 'All Orders',  bg: 'bg-gray-50',    text: 'text-gray-700',   border: 'border-l-gray-400',   activeBg: 'bg-gray-100',   ring: 'ring-gray-300'   },
@@ -30,7 +32,7 @@ const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f9
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-full">
-    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
@@ -125,11 +127,11 @@ export default function VendorDashboard() {
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-4">
-      <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+      <Skeleton className="h-8 w-48" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-24 animate-pulse" />)}
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
       </div>
-      {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />)}
+      {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16" />)}
     </div>
   );
 
@@ -150,7 +152,30 @@ export default function VendorDashboard() {
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
-      
+      {/* ── Hero: Pending Orders by City ── */}
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white text-xl shadow-sm">⏳</div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Pending Orders by City</h2>
+              <p className="text-xs text-amber-700 font-medium">
+                {counts.pending > 0 ? `${counts.pending} order${counts.pending !== 1 ? 's' : ''} awaiting your action` : 'All caught up — no pending orders'}
+              </p>
+            </div>
+          </div>
+          <Link to="/vendor/pending"
+            className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm">
+            View All Pending →
+          </Link>
+        </div>
+        <PendingActionsByCity
+          orders={orders}
+          lastDispatchByCity={lastDispatchByCity}
+          onAccept={handleAccept}
+          onReject={handleReject}
+        />
+      </div>
 
       {alerts.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-wrap gap-2">
@@ -163,28 +188,6 @@ export default function VendorDashboard() {
         </div>
       )}
 
-      
-      {/* Pending Actions by City */}
-      <div>
-        <div className="flex items-center gap-3 mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-1 h-5 bg-blue-600 rounded-full" />
-            <h2 className="text-base font-semibold text-gray-900">Pending Orders by City</h2>
-          </div>
-          {counts.pending > 0 && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-              {counts.pending}
-            </span>
-          )}
-        </div>
-        <PendingActionsByCity
-          orders={orders}
-          lastDispatchByCity={lastDispatchByCity}
-          onAccept={handleAccept}
-          onReject={handleReject}
-        />
-      </div>
-
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-gray-900">Performance</h2>
         <div className="flex items-center gap-2">
@@ -193,13 +196,13 @@ export default function VendorDashboard() {
             const daysSince = Math.max(1, Math.floor((Date.now() - earliest) / 86400000));
             return (
               <button onClick={() => setDays(daysSince)}
-                className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${days === daysSince ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${days === daysSince ? 'bg-amber-600 text-white border-amber-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                 Since last dispatch
               </button>
             );
           })()}
           <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
@@ -390,7 +393,7 @@ export default function VendorDashboard() {
                 <input type="checkbox"
                   checked={selected.size === pendingOrders.length && pendingOrders.length > 0}
                   onChange={(e) => e.target.checked ? selectAll() : clearSel()}
-                  className="w-4 h-4 accent-blue-600" />
+                  className="w-4 h-4 accent-amber-600" />
                 Select All Pending
               </label>
             )}

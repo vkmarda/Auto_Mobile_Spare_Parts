@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getRetailerById } from '../../api/vendor.api';
 import RetailerOrderRow from '../../components/RetailerOrderRow';
+import Skeleton from '../../components/Skeleton';
 
 const STATUSES = ['all', 'pending', 'accepted', 'dispatched', 'delivered', 'confirmed', 'rejected'];
 
@@ -17,11 +18,11 @@ export default function VendorRetailerDetail() {
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-4">
-      <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse" />
+      <Skeleton className="h-8 w-40" />
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        {[...Array(6)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />)}
+        {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-16" />)}
       </div>
-      {[...Array(5)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-14 animate-pulse" />)}
+      {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14" />)}
     </div>
   );
 

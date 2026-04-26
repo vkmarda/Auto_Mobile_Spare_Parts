@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useOrderFlow } from '../../context/OrderFlowContext'
 import { getModels } from '../../api/vehicles.api'
 import OrderBreadcrumb from '../../components/OrderBreadcrumb'
+import Skeleton from '../../components/Skeleton'
 
 const STEPS = ['Vehicle', 'Brand', 'Model'];
 
@@ -48,12 +49,15 @@ export default function ModelStep() {
   }, [brand])
 
   const handleSelect = (item) => {
-    setModel({
-      id: item.model_name,
-      name: item.model_name,
-      slug: item.model_name.toLowerCase().replace(/\s+/g, '-')
-    })
-    navigate('/products')
+    const modelObj = { id: item.model_name, name: item.model_name, slug: item.model_name.toLowerCase().replace(/\s+/g, '-') };
+    setModel(modelObj);
+    try {
+      const saved = JSON.parse(localStorage.getItem('purzaa_saved_vehicles') || '[]');
+      const entry = { vehicleType: vehicleType?.name, brandName: brand?.name, modelName: item.model_name };
+      const deduped = [entry, ...saved.filter((v) => !(v.brandName === entry.brandName && v.modelName === entry.modelName))].slice(0, 3);
+      localStorage.setItem('purzaa_saved_vehicles', JSON.stringify(deduped));
+    } catch (_) {}
+    navigate('/products');
   }
 
   const filtered = models.filter(m =>
@@ -86,7 +90,7 @@ export default function ModelStep() {
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1,2,3,4,5].map(i => (
-              <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
+              <Skeleton key={i} className="h-14" />
             ))}
           </div>
         ) : filtered.length === 0 ? (

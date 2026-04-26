@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getAllOrders, acceptOrder, rejectOrder, bulkAcceptOrders } from '../../api/vendor.api';
 import { getReturns, acceptReturn, settleReturn } from '../../api/returns.api';
 import VendorOrderCard, { COLS } from '../../components/VendorOrderCard';
+import Skeleton from '../../components/Skeleton';
 
 const STAT_CARDS = [
   { key: 'pending',    icon: '⏳', label: 'Need Action',   sub: 'Pending orders',    iconBg: 'bg-amber-100',  numCls: 'text-amber-700',  stripe: 'bg-amber-400'  },
@@ -79,11 +80,11 @@ export default function VendorPending() {
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-4">
-      <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+      <Skeleton className="h-8 w-48" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-24 animate-pulse" />)}
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
       </div>
-      {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-16 animate-pulse" />)}
+      {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16" />)}
     </div>
   );
 

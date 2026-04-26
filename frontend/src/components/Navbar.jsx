@@ -10,6 +10,16 @@ const roleBadge = {
   vendor:   'bg-amber-50 text-amber-700 border border-amber-200',
 };
 
+const VENDOR_NAV = [
+  { to: '/vendor',           label: 'Dashboard', emoji: '📊', dot: null },
+  { to: '/vendor/pending',   label: 'Pending',   emoji: '⏳', dot: 'pending' },
+  { to: '/vendor/orders',    label: 'Orders',    emoji: '📋', dot: null },
+  { to: '/vendor/dispatch',  label: 'Dispatch',  emoji: '🚚', dot: 'accepted' },
+  { to: '/vendor/returns',   label: 'Returns',   emoji: '↩️', dot: 'returns' },
+  { to: '/vendor/retailers', label: 'Retailers', emoji: '🏪', dot: null },
+  { to: '/vendor/products',  label: 'Products',  emoji: '📦', dot: null },
+];
+
 export default function Navbar() {
   const { user, logout }  = useAuth();
   const { cart }          = useCart();
@@ -41,56 +51,62 @@ export default function Navbar() {
   const cartCount = cart?.length || 0;
   const isActive  = (to) => pathname === to;
 
-  const navLink = (to, label, dot = null) => (
-    <Link
-      to={to}
-      className={`relative flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-        isActive(to)
-          ? 'bg-blue-50 text-blue-700'
-          : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-      }`}
-    >
-      {label}
-      {dot === 'pending'  && pendingCount  > 0 && (
-        <span className="w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-          {pendingCount > 9 ? '9+' : pendingCount}
-        </span>
-      )}
-      {dot === 'accepted' && acceptedCount > 0 && (
-        <span className="w-4 h-4 bg-sky-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-          {acceptedCount > 9 ? '9+' : acceptedCount}
-        </span>
-      )}
-      {dot === 'returns'  && returnsCount  > 0 && (
-        <span className="w-4 h-4 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-          {returnsCount > 9 ? '9+' : returnsCount}
-        </span>
-      )}
-    </Link>
-  );
+  const getDot = (dot) => {
+    if (dot === 'pending'  && pendingCount  > 0) return { count: pendingCount,  cls: 'bg-red-500' };
+    if (dot === 'accepted' && acceptedCount > 0) return { count: acceptedCount, cls: 'bg-sky-500' };
+    if (dot === 'returns'  && returnsCount  > 0) return { count: returnsCount,  cls: 'bg-amber-500' };
+    return null;
+  };
 
-  const mobileLink = (to, label, dot = null) => (
-    <Link
-      key={to}
-      to={to}
-      className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b border-gray-100 last:border-0 transition-colors ${
-        isActive(to) ? 'text-blue-700 bg-blue-50' : 'text-gray-700 hover:bg-gray-50'
-      }`}
-    >
-      {isActive(to) && <span className="w-1 h-4 bg-blue-600 rounded-full flex-shrink-0" />}
-      <span className="flex-1">{label}</span>
-      {dot === 'pending'  && pendingCount  > 0 && <span className="w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{pendingCount}</span>}
-      {dot === 'accepted' && acceptedCount > 0 && <span className="w-5 h-5 bg-sky-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{acceptedCount}</span>}
-      {dot === 'returns'  && returnsCount  > 0 && <span className="w-5 h-5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{returnsCount}</span>}
-    </Link>
-  );
+  const navLink = (to, label, dot = null) => {
+    const badge = getDot(dot);
+    return (
+      <Link
+        to={to}
+        className={`relative flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+          isActive(to)
+            ? 'bg-amber-50 text-amber-700'
+            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+        }`}
+      >
+        {label}
+        {badge && (
+          <span className={`w-4 h-4 ${badge.cls} text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none`}>
+            {badge.count > 9 ? '9+' : badge.count}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
+  const mobileLink = (to, label, emoji, dot = null) => {
+    const badge = getDot(dot);
+    return (
+      <Link
+        key={to}
+        to={to}
+        className={`flex items-center gap-3 px-4 py-4 text-sm font-medium border-b border-gray-100 last:border-0 transition-colors ${
+          isActive(to) ? 'text-amber-700 bg-amber-50' : 'text-gray-700 hover:bg-gray-50'
+        }`}
+      >
+        {isActive(to) && <span className="w-1 h-5 bg-amber-600 rounded-full flex-shrink-0" />}
+        {emoji && <span className="text-base">{emoji}</span>}
+        <span className="flex-1">{label}</span>
+        {badge && (
+          <span className={`w-5 h-5 ${badge.cls} text-white text-xs font-bold rounded-full flex items-center justify-center`}>
+            {badge.count}
+          </span>
+        )}
+      </Link>
+    );
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <div className="px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-base shadow-sm">
+          <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center text-white text-base shadow-sm">
             🔧
           </div>
           <span className="text-lg font-bold text-gray-900 tracking-tight">Purzaa</span>
@@ -105,24 +121,14 @@ export default function Navbar() {
               {navLink('/orders',   'My Orders')}
             </>
           )}
-          {user.role === 'vendor' && (
-            <>
-              {navLink('/vendor',           'Dashboard')}
-              {navLink('/vendor/pending',   'Pending',   'pending')}
-              {navLink('/vendor/orders',    'Orders')}
-              {navLink('/vendor/dispatch',  'Dispatch',  'accepted')}
-              {navLink('/vendor/returns',   'Returns',   'returns')}
-              {navLink('/vendor/retailers', 'Retailers')}
-              {navLink('/vendor/products',  'Products')}
-            </>
-          )}
+          {user.role === 'vendor' && VENDOR_NAV.map(({ to, label, dot }) => navLink(to, label, dot))}
         </div>
 
         {/* Right side */}
         <div className="flex items-center gap-2">
           {user.role === 'retailer' && (
             <button type="button" onClick={() => navigate('/cart')}
-              className="relative p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
+              className="relative p-2 text-gray-500 hover:text-amber-600 hover:bg-gray-100 rounded-lg transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M3 3h2l.4 2M7 13h10l4-9H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -169,27 +175,19 @@ export default function Navbar() {
           <div className="px-0 py-1">
             {user.role === 'retailer' && (
               <>
-                {mobileLink('/retailer', 'Home')}
-                {mobileLink('/products', 'Products')}
-                {mobileLink('/orders',   'My Orders')}
+                {mobileLink('/retailer', 'Home',      '🏠')}
+                {mobileLink('/products', 'Products',  '🔍')}
+                {mobileLink('/orders',   'My Orders', '📦')}
               </>
             )}
-            {user.role === 'vendor' && (
-              <>
-                {mobileLink('/vendor',            'Dashboard · Overview & Stats')}
-                {mobileLink('/vendor/pending',    'Pending · Action Required',  'pending')}
-                {mobileLink('/vendor/orders',     'All Orders · Full History')}
-                {mobileLink('/vendor/dispatch',   'Dispatch · Send Orders',     'accepted')}
-                {mobileLink('/vendor/returns',    'Returns',                    'returns')}
-                {mobileLink('/vendor/retailers',  'Retailers')}
-                {mobileLink('/vendor/products',   'Products')}
-              </>
+            {user.role === 'vendor' && VENDOR_NAV.map(({ to, label, emoji, dot }) =>
+              mobileLink(to, label, emoji, dot)
             )}
           </div>
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-blue-700">{user.name.charAt(0).toUpperCase()}</span>
+              <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold text-amber-700">{user.name.charAt(0).toUpperCase()}</span>
               </div>
               <span className="text-sm font-medium text-gray-700">{user.name}</span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadge[user.role]}`}>{user.role}</span>

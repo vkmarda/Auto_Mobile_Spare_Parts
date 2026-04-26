@@ -5,6 +5,7 @@ import { getOrderDetail } from '../../api/detail.api';
 import StatusBadge from '../../components/StatusBadge';
 import DetailModal from '../../components/DetailModal';
 import { printOrders } from '../../utils/printOrders';
+import Skeleton from '../../components/Skeleton';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -169,9 +170,9 @@ export default function VendorOrders() {
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto space-y-4">
-      <div className="h-8 w-40 bg-gray-200 rounded-lg animate-pulse" />
-      <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
-      {[...Array(5)].map((_, i) => <div key={i} className="bg-gray-100 rounded-xl h-12 animate-pulse" />)}
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-10" />
+      {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}
     </div>
   );
 

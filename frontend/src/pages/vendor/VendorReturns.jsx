@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import * as returnsApi from '../../api/returns.api';
 import StatusBadge from '../../components/StatusBadge';
 import DetailModal from '../../components/DetailModal';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -30,6 +31,7 @@ export default function VendorReturns() {
   const [actionLoading, setActionLoading] = useState(null);
   const [loadError, setLoadError]     = useState('');
   const [detailId, setDetailId]       = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
 
   useEffect(() => { fetchReturns(); }, []);
 
@@ -65,17 +67,18 @@ export default function VendorReturns() {
     }
   };
 
-  const handleSettleReturn = async (id) => {
-    if (!window.confirm('Mark this return as settled? No further action will be needed.')) return;
-    setActionLoading(id);
-    try {
-      await returnsApi.settleReturn(id);
-      await fetchReturns();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setActionLoading(null);
-    }
+  const handleSettleReturn = (id) => {
+    setConfirmModal({
+      title: 'Settle Return',
+      message: 'Mark this return as settled? No further action will be needed.',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setActionLoading(id);
+        try { await returnsApi.settleReturn(id); await fetchReturns(); }
+        catch (err) { console.error(err); }
+        finally { setActionLoading(null); }
+      },
+    });
   };
 
   const tabCount = (key) => {
@@ -360,6 +363,14 @@ export default function VendorReturns() {
 
       {detailId && (
         <DetailModal type="return" id={detailId} onClose={() => setDetailId(null)} />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
     </div>
   );

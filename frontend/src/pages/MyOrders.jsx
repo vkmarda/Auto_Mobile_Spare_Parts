@@ -5,6 +5,7 @@ import { createReturn, cancelReturn, getReturns } from '../api/returns.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { toWebP, uploadPhoto } from '../utils/uploadPhoto';
+import ConfirmModal from '../components/ConfirmModal';
 
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -330,6 +331,7 @@ function OrderCard({ order, onRefresh, returnData }) {
   const [showReturn, setShowReturn]   = useState(false);
   const [returnSuccess, setReturnSuccess] = useState('');
   const [toast, setToast]             = useState('');
+  const [confirmModal, setConfirmModal] = useState(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -356,23 +358,32 @@ function OrderCard({ order, onRefresh, returnData }) {
     try { await confirmOrder(order.id); showToast('Delivery confirmed!'); onRefresh(); } finally { setConfirming(false); }
   };
 
-  const handleCancelOrder = async () => {
-    if (!window.confirm('Cancel this pending order?')) return;
-    setCancellingOrder(true);
-    try { await cancelOrder(order.id); showToast('Order cancelled.'); onRefresh(); }
-    catch (err) { showToast(err.response?.data?.error || 'Could not cancel order'); }
-    finally { setCancellingOrder(false); }
+  const handleCancelOrder = () => {
+    setConfirmModal({
+      title: 'Cancel Order',
+      message: 'Cancel this pending order? This cannot be undone.',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setCancellingOrder(true);
+        try { await cancelOrder(order.id); showToast('Order cancelled.'); onRefresh(); }
+        catch (err) { showToast(err.response?.data?.error || 'Could not cancel order'); }
+        finally { setCancellingOrder(false); }
+      },
+    });
   };
 
-  const handleCancelReturn = async () => {
-    if (!window.confirm('Cancel this return request?')) return;
-    setCancelling(true);
-    try {
-      await cancelReturn(order.id);
-      onRefresh();
-    } catch (err) {
-      console.error(err);
-    } finally { setCancelling(false); }
+  const handleCancelReturn = () => {
+    setConfirmModal({
+      title: 'Cancel Return Request',
+      message: 'Cancel this return request? This cannot be undone.',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        setCancelling(true);
+        try { await cancelReturn(order.id); onRefresh(); }
+        catch (err) { console.error(err); }
+        finally { setCancelling(false); }
+      },
+    });
   };
 
   const handleReturnOpen = () => setShowReturn(true);
@@ -610,6 +621,14 @@ function OrderCard({ order, onRefresh, returnData }) {
 
       {showReturn && details && (
         <ReturnModal order={order} details={details} onClose={() => setShowReturn(false)} onSuccess={handleReturnSuccess} />
+      )}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
     </>
   );
