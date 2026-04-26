@@ -9,7 +9,7 @@ const createDispatch = async (req, res, next) => {
       `SELECT o.id, o.order_number, u.city, u.state, u.name AS retailer_name
        FROM orders o
        JOIN users u ON u.id = o.retailer_id
-       WHERE o.status = 'accepted' AND o.vendor_id = $1
+       WHERE o.status IN ('accepted', 'partial_confirmed') AND o.vendor_id = $1
        ${filterCity ? 'AND u.city = $2' : ''}
        ORDER BY u.city`,
       filterCity ? [vendor_id, filterCity] : [vendor_id]

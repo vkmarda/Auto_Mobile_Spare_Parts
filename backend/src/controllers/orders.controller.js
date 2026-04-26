@@ -201,7 +201,7 @@ const getOrderById = async (req, res, next) => {
       );
     } else {
       itemsResult = await query(
-        `SELECT oi.id, oi.product_id, oi.quantity,
+        `SELECT oi.id, oi.product_id, oi.quantity, oi.approved_quantity,
                 oi.vehicle_brand, oi.vehicle_model,
                 p.name AS product_name, p.part_name, p.sku
          FROM order_items oi
@@ -307,7 +307,7 @@ const dispatchOrder = async (req, res, next) => {
     const { id } = req.params;
     const { order, error, status } = await checkOrderAccess(id, req.user.id);
     if (error) return res.status(status).json({ error });
-    if (order.status !== 'accepted') return res.status(400).json({ error: 'Only accepted orders can be dispatched' });
+    if (!['accepted', 'partial_confirmed'].includes(order.status)) return res.status(400).json({ error: 'Only accepted or partially confirmed orders can be dispatched' });
 
     await query(`UPDATE orders SET status = 'dispatched', dispatched_at = now(), updated_at = now() WHERE id = $1`, [id]);
     notify({ mobile: order.retailer_mobile, event: 'order_dispatched', data: { order_number: order.order_number, vendor_name: req.user.name } })
@@ -342,4 +342,58 @@ const cancelOrder = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder, cancelOrder };
+const partialAcceptOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'items array required' });
+    }
+
+    const { order, error, status } = await checkOrderAccess(id, req.user.id);
+    if (error) return res.status(status).json({ error });
+    if (order.status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be partially accepted' });
+
+    const origResult = await query(`SELECT id, quantity FROM order_items WHERE order_id = $1`, [id]);
+    const origMap = {};
+    for (const row of origResult.rows) origMap[row.id] = parseInt(row.quantity);
+
+    for (const item of items) {
+      const max = origMap[item.id];
+      if (!max) return res.status(400).json({ error: `Invalid item id: ${item.id}` });
+      if (item.approved_quantity < 0 || item.approved_quantity > max) {
+        return res.status(400).json({ error: `approved_quantity for item ${item.id} must be 0–${max}` });
+      }
+    }
+    if (items.every((i) => i.approved_quantity === 0)) {
+      return res.status(400).json({ error: 'At least one item must have approved_quantity > 0' });
+    }
+
+    for (const item of items) {
+      await query(`UPDATE order_items SET approved_quantity = $1 WHERE id = $2 AND order_id = $3`,
+        [item.approved_quantity, item.id, id]);
+    }
+    await query(`UPDATE orders SET status = 'partially_accepted', updated_at = now() WHERE id = $1`, [id]);
+
+    notify({ mobile: order.retailer_mobile, event: 'order_partially_accepted',
+      data: { order_number: order.order_number, vendor_name: req.user.name } })
+      .catch((e) => console.error('Notify error:', e));
+
+    res.json({ id, status: 'partially_accepted' });
+  } catch (err) { next(err); }
+};
+
+const confirmPartialOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await query(`SELECT * FROM orders WHERE id = $1 AND retailer_id = $2`, [id, req.user.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    if (result.rows[0].status !== 'partially_accepted') {
+      return res.status(400).json({ error: 'Only partially accepted orders can be confirmed' });
+    }
+    await query(`UPDATE orders SET status = 'partial_confirmed', updated_at = now() WHERE id = $1`, [id]);
+    res.json({ id, status: 'partial_confirmed' });
+  } catch (err) { next(err); }
+};
+
+module.exports = { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder, cancelOrder, partialAcceptOrder, confirmPartialOrder };

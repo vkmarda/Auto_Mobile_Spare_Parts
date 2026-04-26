@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import * as returnsApi from '../../api/returns.api';
+import { RotateCcw, MapPin, Check, CheckCircle } from 'lucide-react';
 import StatusBadge from '../../components/StatusBadge';
 import DetailModal from '../../components/DetailModal';
 import ConfirmModal from '../../components/ConfirmModal';
+import { useToast } from '../../context/ToastContext';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -16,7 +18,7 @@ const TABS = [
 ];
 
 const BORDER = {
-  return_requested:  'border-l-amber-400',
+  return_requested:  'border-l-indigo-400',
   return_accepted:   'border-l-blue-400',
   return_dispatched: 'border-l-purple-400',
   return_received:   'border-l-teal-400',
@@ -24,6 +26,7 @@ const BORDER = {
 };
 
 export default function VendorReturns() {
+  const showToast                     = useToast();
   const [returns, setReturns]         = useState([]);
   const [tab, setTab]                 = useState('all');
   const [loading, setLoading]         = useState(true);
@@ -55,11 +58,12 @@ export default function VendorReturns() {
     }
   };
 
-  const handleAcceptReturn = async (id) => {
-    setActionLoading(id);
+  const handleAcceptReturn = async (ret) => {
+    setActionLoading(ret.id);
     try {
-      await returnsApi.acceptReturn(id);
+      await returnsApi.acceptReturn(ret.id);
       await fetchReturns();
+      showToast(`${ret.return_number} accepted · ${ret.retailer_name}${ret.order_number ? ` (↩ ${ret.order_number})` : ''}`);
     } catch (err) {
       console.error(err);
     } finally {
@@ -67,14 +71,18 @@ export default function VendorReturns() {
     }
   };
 
-  const handleSettleReturn = (id) => {
+  const handleSettleReturn = (ret) => {
     setConfirmModal({
       title: 'Settle Return',
       message: 'Mark this return as settled? No further action will be needed.',
       onConfirm: async () => {
         setConfirmModal(null);
-        setActionLoading(id);
-        try { await returnsApi.settleReturn(id); await fetchReturns(); }
+        setActionLoading(ret.id);
+        try {
+          await returnsApi.settleReturn(ret.id);
+          await fetchReturns();
+          showToast(`${ret.return_number} settled · ${ret.retailer_name}`);
+        }
         catch (err) { console.error(err); }
         finally { setActionLoading(null); }
       },
@@ -110,9 +118,9 @@ export default function VendorReturns() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-amber-700">{counts.requested}</p>
-          <p className="text-xs text-amber-600 mt-0.5">Requested</p>
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-center">
+          <p className="text-2xl font-bold text-indigo-700">{counts.requested}</p>
+          <p className="text-xs text-indigo-600 mt-0.5">Requested</p>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
           <p className="text-2xl font-bold text-blue-700">{counts.accepted}</p>
@@ -164,7 +172,7 @@ export default function VendorReturns() {
               {Object.values(groups).map((g) => (
                 <div key={g.return_delivery_id} className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-purple-100 bg-purple-50">
-                    <span className="text-xs font-bold uppercase tracking-wide text-purple-700">↩ Return Delivery</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-purple-700 flex items-center gap-1"><RotateCcw size={11} />Return Delivery</span>
                     <span className="font-mono text-xs text-purple-600 bg-white border border-purple-200 px-2 py-0.5 rounded font-bold">
                       {g.dispatch_number}
                     </span>
@@ -173,7 +181,7 @@ export default function VendorReturns() {
                   <div className="divide-y divide-gray-50">
                     {g.items.map((r) => (
                       <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
-                        <span className="font-mono font-bold text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                        <span className="font-mono font-bold text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
                           {r.return_number}
                         </span>
                         <span className="text-sm font-medium text-gray-800">{r.retailer_name}</span>
@@ -210,7 +218,7 @@ export default function VendorReturns() {
 
                 {/* Top row */}
                 <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
-                  <span className="font-mono font-bold text-sm text-amber-600">{return_.return_number}</span>
+                  <span className="font-mono font-bold text-sm text-indigo-600">{return_.return_number}</span>
                   <span className="text-xs text-gray-400">linked to</span>
                   <span className="font-mono text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{return_.order_number}</span>
                   <div className="ml-auto flex items-center gap-2">
@@ -223,8 +231,8 @@ export default function VendorReturns() {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
                   <span className="font-semibold text-gray-900 text-sm">{return_.retailer_name}</span>
                   {return_.city && (
-                    <span className="text-xs text-gray-400">
-                      📍 {[return_.city, return_.state].filter(Boolean).join(', ')}
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <MapPin size={11} />{[return_.city, return_.state].filter(Boolean).join(', ')}
                     </span>
                   )}
                   {return_.reason && (
@@ -298,13 +306,13 @@ export default function VendorReturns() {
                   {return_.status === 'return_requested' && (
                     <>
                       <button
-                        onClick={() => handleAcceptReturn(return_.id)}
+                        onClick={() => handleAcceptReturn(return_)}
                         disabled={actionLoading === return_.id}
                         className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                         {actionLoading === return_.id ? 'Processing...' : 'Accept Return'}
                       </button>
                       <button
-                        onClick={() => handleSettleReturn(return_.id)}
+                        onClick={() => handleSettleReturn(return_)}
                         disabled={actionLoading === return_.id}
                         className="bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                         {actionLoading === return_.id ? 'Processing...' : 'Settled'}
@@ -318,7 +326,7 @@ export default function VendorReturns() {
                         Will be grouped in next dispatch
                       </span>
                       <button
-                        onClick={() => handleSettleReturn(return_.id)}
+                        onClick={() => handleSettleReturn(return_)}
                         disabled={actionLoading === return_.id}
                         className="bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                         Mark Settled
@@ -330,7 +338,7 @@ export default function VendorReturns() {
                     <>
                       {return_.dispatch_number && (
                         <span className="font-mono text-xs text-purple-600 bg-purple-50 border border-purple-200 rounded-full px-3 py-1">
-                          ↩ {return_.dispatch_number}
+                          <RotateCcw size={10} className="inline mr-1" />{return_.dispatch_number}
                         </span>
                       )}
                       <span className="text-xs text-purple-500 italic">Will be marked received when dispatch is delivered</span>
@@ -338,14 +346,14 @@ export default function VendorReturns() {
                   )}
 
                   {return_.status === 'return_received' && (
-                    <span className="text-xs bg-teal-50 text-teal-600 border border-teal-200 rounded-full px-3 py-1">
-                      ✓ Items back at warehouse
+                    <span className="text-xs bg-teal-50 text-teal-600 border border-teal-200 rounded-full px-3 py-1 flex items-center gap-1">
+                      <Check size={11} strokeWidth={3} />Items back at warehouse
                     </span>
                   )}
 
                   {return_.status === 'return_settled' && (
                     <span className="text-sm text-green-600 flex items-center gap-1">
-                      ✓ Settled — no further action needed
+                      <CheckCircle size={14} />Settled — no further action needed
                     </span>
                   )}
                   <button

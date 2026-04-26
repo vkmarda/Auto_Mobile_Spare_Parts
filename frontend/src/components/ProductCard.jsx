@@ -1,14 +1,56 @@
 import { useState } from 'react'
+import { Check, Wrench } from 'lucide-react'
 import { useCart } from '../context/CartContext'
+import { useToast } from '../context/ToastContext'
+import { getVendorsByProduct } from '../api/products.api'
+
+function VendorSelectModal({ product, qty, vendors, loading, onSelect, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">Select Vendor</h2>
+            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{product.part_name || product.name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-lg leading-none ml-3">✕</button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : vendors.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">No vendors available</p>
+        ) : (
+          <div className="space-y-2">
+            {vendors.map((v) => (
+              <button key={v.vendor_id} onClick={() => onSelect(v)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left">
+                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-indigo-600">{v.vendor_name.charAt(0).toUpperCase()}</span>
+                </div>
+                <span className="text-sm font-medium text-gray-800">{v.vendor_name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart()
+  const { showToast } = useToast()
   const [added, setAdded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [qty, setQty] = useState(1)
+  const [showVendorModal, setShowVendorModal] = useState(false)
+  const [vendors, setVendors] = useState([])
+  const [vendorsLoading, setVendorsLoading] = useState(false)
 
-  const primaryImage = product.images?.[0]?.image_url ||
-                       product.image_url
+  const primaryImage = product.images?.[0]?.image_url || product.image_url
 
   const handleQtyChange = (e) => {
     const val = parseInt(e.target.value)
@@ -20,23 +62,50 @@ export default function ProductCard({ product }) {
     if (!qty || qty < 1) setQty(1)
   }
 
-  const handleAddToCart = () => {
-    if (!product.id) {
-      console.error('Product has no id:', product)
-      return
+  const handleAddToCart = async () => {
+    if (!product.id) return
+    setVendorsLoading(true)
+    setShowVendorModal(true)
+    try {
+      const data = await getVendorsByProduct(product.id)
+      setVendors(data)
+    } finally {
+      setVendorsLoading(false)
     }
+  }
+
+  const handleVendorSelect = (vendor) => {
     addToCart({
-      product_id: product.id,
+      product_id: vendor.product_id,
       name: product.part_name || product.name,
       sku: product.sku,
-      image_url: product.images?.[0]?.image_url || product.image_url,
+      image_url: primaryImage,
       quantity: qty || 1,
+      vendor_id: vendor.vendor_id,
+      vendor_name: vendor.vendor_name,
+      brand: product.brand || null,
+      vehicle_brand: product.vehicle_brand || null,
+      vehicle_model: product.vehicle_model || null,
     })
+    setShowVendorModal(false)
+    setVendors([])
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
+    showToast(`Added to cart — ${vendor.vendor_name}`, 'success', null, 2500)
   }
 
   return (
+    <>
+    {showVendorModal && (
+      <VendorSelectModal
+        product={product}
+        qty={qty}
+        vendors={vendors}
+        loading={vendorsLoading}
+        onSelect={handleVendorSelect}
+        onClose={() => { setShowVendorModal(false); setVendors([]) }}
+      />
+    )}
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all overflow-hidden flex flex-col">
 
       {/* Image */}
@@ -50,7 +119,7 @@ export default function ProductCard({ product }) {
             loading="lazy"
           />
         ) : (
-          <span className="text-5xl">🔧</span>
+          <Wrench size={40} className="text-gray-300" />
         )}
       </div>
 
@@ -114,10 +183,11 @@ export default function ProductCard({ product }) {
                 ? 'bg-green-500 text-white'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}>
-            {added ? '✓ Added' : 'Add to Cart'}
+            {added ? <><Check size={14} strokeWidth={3} className="inline mr-1" />Added</> : 'Add to Cart'}
           </button>
         </div>
       </div>
     </div>
+    </>
   )
 }

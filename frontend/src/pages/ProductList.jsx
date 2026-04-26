@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Bike, Wrench } from 'lucide-react'
 import { getProducts } from '../api/products.api'
 import { useCart } from '../context/CartContext'
 import { useOrderFlow } from '../context/OrderFlowContext'
@@ -83,12 +84,12 @@ export default function ProductList() {
 
           {/* Routable breadcrumb */}
           <div className="flex items-center gap-1 text-sm flex-wrap flex-1 justify-center">
-            <span className="text-base">🏍️</span>
+            <Bike size={16} className="text-indigo-500 flex-shrink-0" />
             {vehicleType && (
               <>
                 <span
                   onClick={() => { resetFlow(); navigate('/order/vehicle-type') }}
-                  className="text-blue-500 cursor-pointer hover:underline">
+                  className="text-indigo-500 cursor-pointer hover:underline">
                   {vehicleType.name}
                 </span>
                 <span className="text-gray-300">›</span>
@@ -98,7 +99,7 @@ export default function ProductList() {
               <>
                 <span
                   onClick={() => navigate('/order/brand')}
-                  className="text-blue-500 cursor-pointer hover:underline">
+                  className="text-indigo-500 cursor-pointer hover:underline">
                   {brand.name}
                 </span>
                 <span className="text-gray-300">›</span>
@@ -108,7 +109,7 @@ export default function ProductList() {
               <>
                 <span
                   onClick={() => navigate('/order/model')}
-                  className="text-blue-500 cursor-pointer hover:underline">
+                  className="text-indigo-500 cursor-pointer hover:underline">
                   {model.name}
                 </span>
               </>
@@ -124,7 +125,7 @@ export default function ProductList() {
           {/* Change vehicle */}
           <button
             onClick={() => { resetFlow(); navigate('/order/vehicle-type') }}
-            className="text-xs text-blue-600 hover:underline font-medium flex-shrink-0">
+            className="text-xs text-indigo-600 hover:underline font-medium flex-shrink-0">
             Change Vehicle
           </button>
         </div>
@@ -139,7 +140,7 @@ export default function ProductList() {
                 onClick={() => setSelectedCategory(null)}
                 className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                   !selectedCategory
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-indigo-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}>
                 All Parts ({allProducts.length})
@@ -150,7 +151,7 @@ export default function ProductList() {
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                     selectedCategory === cat.id
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-indigo-600 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}>
                   {cat.name} ({categoryCount(cat.id)})
@@ -169,7 +170,7 @@ export default function ProductList() {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Search parts by name or SKU…"
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
           />
         </div>
 
@@ -194,7 +195,7 @@ export default function ProductList() {
           </div>
         ) : displayedProducts.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-4xl mb-3">🔧</p>
+            <Wrench size={40} className="mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-gray-500 mb-1">No parts found</p>
             <p className="text-sm text-gray-400 mb-6">
               {searchTerm ? 'Try a different search term' : 'Try a different category'}
@@ -202,7 +203,7 @@ export default function ProductList() {
             {selectedCategory && (
               <button
                 onClick={() => setSelectedCategory(null)}
-                className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+                className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
                 Show All Parts
               </button>
             )}
@@ -225,10 +226,10 @@ export default function ProductList() {
           <button
             onClick={() => navigate('/cart')}
             disabled={cartCount === 0}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
             {cartCount > 0 ? (
               <>
-                <span className="bg-white text-blue-600 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center">
+                <span className="bg-white text-indigo-600 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center">
                   {cartCount}
                 </span>
                 View Cart · {cartCount} item{cartCount !== 1 ? 's' : ''}

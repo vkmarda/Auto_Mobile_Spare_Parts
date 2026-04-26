@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Check, Search } from 'lucide-react'
 import { useOrderFlow } from '../../context/OrderFlowContext'
 import { getModels } from '../../api/vehicles.api'
 import OrderBreadcrumb from '../../components/OrderBreadcrumb'
@@ -19,7 +20,7 @@ function ProgressBar({ current }) {
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
                 ${done ? 'bg-blue-600 border-blue-600 text-white' : active ? 'border-blue-600 bg-white text-blue-600' : 'border-gray-200 bg-white text-gray-400'}`}>
-                {done ? '✓' : step}
+                {done ? <Check size={14} strokeWidth={3} /> : step}
               </div>
               <span className={`text-xs mt-1 font-medium whitespace-nowrap ${active ? 'text-blue-600' : done ? 'text-blue-400' : 'text-gray-400'}`}>{label}</span>
             </div>
@@ -95,7 +96,7 @@ export default function ModelStep() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
-            <div className="text-4xl mb-3">🔍</div>
+            <Search size={36} className="mx-auto mb-3 text-gray-300" />
             <p>{search ? `No models found for "${search}"` : 'No models available'}</p>
           </div>
         ) : (

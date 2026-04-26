@@ -6,11 +6,12 @@
 //   4. Uncomment the axios block below and install axios (already in package.json)
 
 const MESSAGES = {
-  order_placed:    (d) => `New order ${d.order_number} from ${d.retailer_name} · ₹${d.total_amount}. Login to review.`,
-  order_accepted:  (d) => `Your order ${d.order_number} has been accepted by ${d.vendor_name}. It will be dispatched soon.`,
-  order_rejected:  (d) => `Your order ${d.order_number} was rejected by ${d.vendor_name}.`,
-  order_dispatched:(d) => `Your order ${d.order_number} has been dispatched. Expect delivery shortly.`,
-  order_delivered: (d) => `Your order ${d.order_number} has been delivered. Thank you!`,
+  order_placed:             (d) => `New order ${d.order_number} from ${d.retailer_name} · ₹${d.total_amount}. Login to review.`,
+  order_accepted:           (d) => `Your order ${d.order_number} has been accepted by ${d.vendor_name}. It will be dispatched soon.`,
+  order_rejected:           (d) => `Your order ${d.order_number} was rejected by ${d.vendor_name}.`,
+  order_dispatched:         (d) => `Your order ${d.order_number} has been dispatched. Expect delivery shortly.`,
+  order_delivered:          (d) => `Your order ${d.order_number} has been delivered. Thank you!`,
+  order_partially_accepted: (d) => `Your order ${d.order_number} has been partially accepted by ${d.vendor_name}. Please login to review the quantities and confirm.`,
 };
 
 const notify = async ({ mobile, event, data }) => {

@@ -38,3 +38,15 @@ export const getRetailers = () =>
 
 export const getRetailerById = (id) =>
   client.get(`/vendor/retailers/${id}`).then((r) => r.data);
+
+export const getPendingCount = () =>
+  client.get('/vendor/pending-count').then((r) => r.data.count);
+
+export const getCityStats = (days = 7) =>
+  client.get(`/vendor/city-stats?days=${days}`).then((r) => r.data);
+
+export const getReturnsSummary = (days = 7) =>
+  client.get(`/vendor/returns-summary?days=${days}`).then((r) => r.data);
+
+export const partialAcceptOrder = (id, data) =>
+  client.post(`/orders/${id}/partial-accept`, data).then((r) => r.data);

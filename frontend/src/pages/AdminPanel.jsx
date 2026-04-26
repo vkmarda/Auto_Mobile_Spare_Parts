@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getPendingVendors, getAllVendors, approveVendor, getAllRetailers } from '../api/admin.api';
+import { CheckCircle } from 'lucide-react';
 
 function Badge({ approved }) {
   return approved
     ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Approved</span>
-    : <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Pending</span>;
+    : <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Pending</span>;
 }
 
 export default function AdminPanel() {
@@ -74,7 +75,7 @@ export default function AdminPanel() {
             {t.label}
             {t.count > 0 && (
               <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold
-                ${t.id === 'pending' ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                ${t.id === 'pending' ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
                 {t.count}
               </span>
             )}
@@ -89,7 +90,7 @@ export default function AdminPanel() {
           <div className="overflow-x-auto">
             {tab === 'pending' && (
               pending.length === 0
-                ? <div className="py-16 text-center text-gray-400"><p className="text-3xl mb-2">✅</p><p className="text-sm font-medium">No pending vendor applications</p></div>
+                ? <div className="py-16 text-center text-gray-400"><CheckCircle size={30} className="mx-auto mb-2 text-green-400" /><p className="text-sm font-medium">No pending vendor applications</p></div>
                 : <table className="w-full text-sm min-w-[600px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>{['Name','Email','Mobile','Location','GST Number','Action'].map((h) => <th key={h} className="px-4 py-3 text-left text-gray-600 font-medium">{h}</th>)}</tr>

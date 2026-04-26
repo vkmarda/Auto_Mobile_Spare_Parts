@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
+import { CheckCircle, Inbox } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAllOrders, acceptOrder, rejectOrder } from '../api/vendor.api';
 import VendorOrderCard, { COLS } from '../components/VendorOrderCard';
 
 const colHeader = (
-  <div className="hidden md:grid px-4 py-2 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50"
+  <div className="hidden md:grid px-4 py-2 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50 border-l-4 border-l-transparent"
     style={{ gridTemplateColumns: COLS }}>
-    <div /><span>Order</span><span>Phone</span><span>Retailer</span>
-    <span>Date</span><span>Units</span><span>Location</span>
-    <span>Status</span><span />
+    <div /><span>Retailer</span><span>Phone</span><span>Date</span>
+    <span>Units</span><span>Location</span><span>Status</span><span>Action</span><span />
   </div>
 );
 
-function OrderSection({ title, orders, onAccept, onReject, emptyIcon, emptyMsg }) {
+function OrderSection({ title, orders, onAccept, onReject, EmptyIcon, emptyMsg }) {
   return (
     <section className="mb-8">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{title}</h2>
       {orders.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-10 text-center">
-          <p className="text-3xl mb-2">{emptyIcon}</p>
+          {EmptyIcon && <EmptyIcon size={32} className="mx-auto mb-2 text-gray-300" />}
           <p className="text-sm font-medium text-gray-500">{emptyMsg}</p>
         </div>
       ) : (
@@ -97,21 +97,20 @@ export default function VendorHome() {
         orders={pending}
         onAccept={handleAccept}
         onReject={handleReject}
-        emptyIcon="✅"
+        EmptyIcon={CheckCircle}
         emptyMsg="All caught up! No pending orders."
       />
 
       <OrderSection
         title="Accepted Orders"
         orders={accepted}
-        emptyIcon="📭"
+        EmptyIcon={Inbox}
         emptyMsg="No accepted orders."
       />
 
       <OrderSection
         title="Rejected Orders"
         orders={rejected}
-        emptyIcon="—"
         emptyMsg="No rejected orders."
       />
 

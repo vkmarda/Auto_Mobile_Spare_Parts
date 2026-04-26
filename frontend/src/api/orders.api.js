@@ -20,3 +20,6 @@ export const placePhotoOrder = (data) =>
 
 export const cancelOrder = (id) =>
   client.post(`/orders/${id}/cancel`).then((r) => r.data);
+
+export const confirmPartialOrder = (id) =>
+  client.post(`/orders/${id}/confirm-partial`).then((r) => r.data);

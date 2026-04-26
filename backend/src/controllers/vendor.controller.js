@@ -175,4 +175,80 @@ const getLastDispatchesByCity = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getDemand, getStats, bulkAcceptOrders, getSalesChart, getProductStats, getLastDispatchesByCity };
+const getCityStats = async (req, res, next) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const vendor_id = req.user.id;
+    const interval = `${days} days`;
+
+    const result = await query(
+      `SELECT u.city,
+              COUNT(DISTINCT o.id)     AS order_count,
+              COALESCE(SUM(oi.quantity), 0) AS total_qty
+       FROM orders o
+       JOIN users u       ON u.id = o.retailer_id
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.vendor_id = $1
+         AND o.status != 'rejected'
+         AND o.created_at >= now() - interval '${interval}'
+         AND u.city IS NOT NULL
+       GROUP BY u.city
+       ORDER BY total_qty DESC
+       LIMIT 10`,
+      [vendor_id]
+    );
+
+    res.json(result.rows.map((r) => ({
+      city:        r.city,
+      order_count: parseInt(r.order_count),
+      total_qty:   parseInt(r.total_qty),
+    })));
+  } catch (err) { next(err); }
+};
+
+const getReturnsSummary = async (req, res, next) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const vendor_id = req.user.id;
+    const interval = `${days} days`;
+
+    const result = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'return_requested')  AS requested,
+         COUNT(*) FILTER (WHERE status = 'return_accepted')   AS accepted,
+         COUNT(*) FILTER (WHERE status = 'return_dispatched') AS dispatched,
+         COUNT(*) FILTER (WHERE status = 'return_received')   AS received,
+         COUNT(*) FILTER (WHERE status = 'return_settled')    AS settled,
+         COUNT(*) FILTER (WHERE status = 'return_cancelled')  AS cancelled
+       FROM orders
+       WHERE vendor_id = $1
+         AND updated_at >= now() - interval '${interval}'
+         AND status LIKE 'return_%'`,
+      [vendor_id]
+    );
+
+    const r = result.rows[0];
+    res.json({
+      requested:  parseInt(r.requested),
+      accepted:   parseInt(r.accepted),
+      dispatched: parseInt(r.dispatched),
+      received:   parseInt(r.received),
+      settled:    parseInt(r.settled),
+      cancelled:  parseInt(r.cancelled),
+      total: parseInt(r.requested) + parseInt(r.accepted) + parseInt(r.dispatched)
+           + parseInt(r.received)  + parseInt(r.settled)  + parseInt(r.cancelled),
+    });
+  } catch (err) { next(err); }
+};
+
+const getPendingCount = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT COUNT(*) AS count FROM orders WHERE vendor_id = $1 AND status = 'pending'`,
+      [req.user.id]
+    );
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) { next(err); }
+};
+
+module.exports = { getDemand, getStats, bulkAcceptOrders, getSalesChart, getProductStats, getLastDispatchesByCity, getPendingCount, getCityStats, getReturnsSummary };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Store } from 'lucide-react';
 import { getRetailers } from '../../api/vendor.api';
 import Skeleton from '../../components/Skeleton';
 
@@ -60,7 +61,7 @@ export default function VendorRetailers() {
 
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
-          <p className="text-3xl mb-3">🏪</p>
+          <Store size={32} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-semibold text-gray-700">No retailers found</p>
           <p className="text-xs text-gray-400 mt-1">Try adjusting your search or filters</p>
         </div>
@@ -95,7 +96,7 @@ export default function VendorRetailers() {
                     <td className="px-4 py-3 text-sm font-semibold text-gray-700">{r.total_orders}</td>
                     <td className="px-4 py-3">
                       {r.pending_count > 0
-                        ? <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">{r.pending_count}</span>
+                        ? <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">{r.pending_count}</span>
                         : <span className="text-xs text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3">

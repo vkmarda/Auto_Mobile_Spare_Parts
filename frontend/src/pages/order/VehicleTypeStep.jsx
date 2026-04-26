@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Bike, Check } from 'lucide-react';
 import { getVehicleTypes } from '../../api/vehicles.api';
 import { useOrderFlow } from '../../context/OrderFlowContext';
 
@@ -32,7 +33,7 @@ function SearchBar() {
   );
 }
 
-const ICONS = { bike: '🏍️', scooter: '🛵' };
+// Lucide Bike covers both bike and scooter types
 const SUBTITLES = { bike: 'Motorcycles & dirt bikes', scooter: 'City & geared scooters' };
 const STEPS = ['Vehicle', 'Brand', 'Model'];
 
@@ -48,7 +49,7 @@ function ProgressBar({ current }) {
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
                 ${done ? 'bg-blue-600 border-blue-600 text-white' : active ? 'border-blue-600 bg-white text-blue-600' : 'border-gray-200 bg-white text-gray-400'}`}>
-                {done ? '✓' : step}
+                {done ? <Check size={14} strokeWidth={3} /> : step}
               </div>
               <span className={`text-xs mt-1 font-medium whitespace-nowrap ${active ? 'text-blue-600' : done ? 'text-blue-400' : 'text-gray-400'}`}>{label}</span>
             </div>
@@ -111,7 +112,7 @@ export default function VehicleTypeStep() {
                 <button key={t.name} onClick={() => select(t)}
                   className={`rounded-2xl p-8 border-2 text-center transition-all hover:scale-105 shadow-sm
                     ${sel === t.name ? 'border-blue-500 bg-blue-50' : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md'}`}>
-                  <span className="text-5xl block mb-3">{ICONS[slug] || '🏍️'}</span>
+                  <Bike size={44} className="mx-auto mb-3 text-gray-600" />
                   <p className="text-base font-bold text-gray-900">{t.name}</p>
                   <p className="text-xs text-gray-400 mt-1">{SUBTITLES[slug] || ''}</p>
                 </button>

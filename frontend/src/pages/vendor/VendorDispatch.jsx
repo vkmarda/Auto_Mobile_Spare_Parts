@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
+import { CheckCircle, Package, AlertTriangle, Printer } from 'lucide-react';
 import { getAllOrders } from '../../api/vendor.api';
 import { getReturns } from '../../api/returns.api';
 import { createDispatch, getDispatches, markDispatchDelivered, getDispatchSheet } from '../../api/dispatch.api';
 import { printDispatch } from '../../utils/printDispatch';
 import StatusBadge from '../../components/StatusBadge';
 import DetailModal from '../../components/DetailModal';
+import { useToast } from '../../context/ToastContext';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const fmtDateKey = (d) => {
@@ -47,12 +49,12 @@ function ConfirmModal({ city, orderCount, cityCount, returnCount, retailers, unc
 
         {/* Warnings */}
         {unconfirmedCount > 0 && (
-          <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mb-3">
-            ⚠️ <span className="font-semibold">{unconfirmedCount}</span> previous delivery{unconfirmedCount !== 1 ? 'ies' : 'y'} to this city not yet confirmed by retailers.
+          <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5">
+            <AlertTriangle size={13} className="flex-shrink-0" /><span className="font-semibold">{unconfirmedCount}</span> previous delivery{unconfirmedCount !== 1 ? 'ies' : 'y'} to this city not yet confirmed by retailers.
           </p>
         )}
         {returnCount > 0 && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+          <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 mb-3">
             ↩ Also picking up <span className="font-semibold">{returnCount}</span> return{returnCount !== 1 ? 's' : ''}.
           </p>
         )}
@@ -139,7 +141,7 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
 
   const handleDeliver = async () => {
     setActing(true);
-    try { await onMarkDelivered(dispatch.id); } finally { setActing(false); }
+    try { await onMarkDelivered(dispatch); } finally { setActing(false); }
   };
 
   const handlePrint = async () => {
@@ -153,8 +155,8 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
   return (
     <div className={`bg-white rounded-xl border shadow-sm overflow-hidden ${isStale ? 'border-orange-300' : 'border-gray-200'}`}>
       {isStale && (
-        <div className="bg-orange-50 border-b border-orange-200 px-4 py-1.5 text-xs text-orange-700 font-medium">
-          ⚠️ Dispatched {daysSinceDispatch} days ago — delivery not yet confirmed
+        <div className="bg-orange-50 border-b border-orange-200 px-4 py-1.5 text-xs text-orange-700 font-medium flex items-center gap-1.5">
+          <AlertTriangle size={13} className="flex-shrink-0" />Dispatched {daysSinceDispatch} days ago — delivery not yet confirmed
         </div>
       )}
       {/* Header row */}
@@ -165,7 +167,7 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
         <span className="text-xs text-gray-400">
           {dispatch.order_count} order{dispatch.order_count !== 1 ? 's' : ''}
           {dispatch.return_delivery && (
-            <span className="text-amber-500"> · {dispatch.return_delivery.return_count} return pickup{dispatch.return_delivery.return_count !== 1 ? 's' : ''}</span>
+            <span className="text-indigo-500"> · {dispatch.return_delivery.return_count} return pickup{dispatch.return_delivery.return_count !== 1 ? 's' : ''}</span>
           )}
           {' · '}{fmtDate(dispatch.created_at)}
         </span>
@@ -177,7 +179,7 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
           <button onClick={handlePrint} disabled={printing}
             className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-medium disabled:opacity-50 flex items-center gap-1.5">
             {printing && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
-            {printing ? 'Preparing…' : '🖨 Print'}
+            {printing ? 'Preparing…' : <><Printer size={14} className="inline mr-1" />Print</>}
           </button>
           {dispatch.status === 'dispatched' && (
             <button onClick={handleDeliver} disabled={acting}
@@ -217,15 +219,15 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
 
           {/* Return requests linked to this dispatch */}
           {dispatch.return_delivery?.requests?.length > 0 && (
-            <div className="border border-amber-200 rounded-lg overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-100">
-                <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">↩ Return Pickups</span>
-                <span className="text-xs text-amber-500">{dispatch.return_delivery.return_count} request{dispatch.return_delivery.return_count !== 1 ? 's' : ''}</span>
+            <div className="border border-indigo-200 rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+                <span className="text-xs font-bold text-indigo-700 uppercase tracking-wide">↩ Return Pickups</span>
+                <span className="text-xs text-indigo-500">{dispatch.return_delivery.return_count} request{dispatch.return_delivery.return_count !== 1 ? 's' : ''}</span>
               </div>
-              <div className="divide-y divide-amber-50 bg-white">
+              <div className="divide-y divide-indigo-50 bg-white">
                 {dispatch.return_delivery.requests.map((r) => (
                   <div key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                    <span className="font-mono text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
                       {r.return_number}
                     </span>
                     <span className="text-xs text-gray-700 font-medium">{r.retailer_name}</span>
@@ -249,13 +251,13 @@ function DispatchCard({ dispatch, onMarkDelivered, onShowDetail }) {
 }
 
 export default function VendorDispatch() {
+  const showToast               = useToast();
   const [orders, setOrders]       = useState([]);
   const [returns, setReturns]     = useState([]);
   const [dispatches, setDispatches] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [dispatching, setDispatching] = useState(false);
-  const [successMsg, setSuccessMsg]   = useState('');
   const [error, setError]         = useState('');
   const [dispatchCity, setDispatchCity]   = useState(null);
   const [showCityConfirm, setShowCityConfirm] = useState(false);
@@ -272,7 +274,7 @@ export default function VendorDispatch() {
     } finally { setLoading(false); }
   }
 
-  const accepted       = orders.filter((o) => o.status === 'accepted');
+  const accepted       = orders.filter((o) => o.status === 'accepted' || o.status === 'partial_confirmed');
   const returnAccepted = returns.filter((r) => r.status === 'return_accepted');
 
   const overdueOrders = accepted.filter((o) =>
@@ -323,7 +325,9 @@ export default function VendorDispatch() {
     setDispatching(true); setError('');
     try {
       const result = await createDispatch(city, state);
-      setSuccessMsg(`Created ${result.dispatches.length} dispatch${result.dispatches.length !== 1 ? 'es' : ''}: ${result.dispatches.map((d) => d.dispatch_number).join(', ')}`);
+      const nums = result.dispatches.map((d) => d.dispatch_number).join(', ');
+      const label = city ? `Dispatched to ${city} · ${nums}` : `${result.dispatches.length} dispatch${result.dispatches.length !== 1 ? 'es' : ''} created · ${nums}`;
+      showToast(label);
       setShowModal(false);
       setShowCityConfirm(false);
       setDispatchCity(null);
@@ -335,9 +339,10 @@ export default function VendorDispatch() {
     } finally { setDispatching(false); }
   };
 
-  const handleMarkDelivered = async (id) => {
-    await markDispatchDelivered(id);
+  const handleMarkDelivered = async (dispatch) => {
+    await markDispatchDelivered(dispatch.id);
     await load();
+    showToast(`${dispatch.dispatch_number} delivered · ${dispatch.city}`);
   };
 
   if (loading) return (
@@ -354,11 +359,6 @@ export default function VendorDispatch() {
         <p className="text-sm text-gray-500 mt-1">Send accepted orders and track deliveries by city</p>
       </div>
 
-      {successMsg && (
-        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">
-          ✅ {successMsg}
-        </div>
-      )}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
           {error}
@@ -366,7 +366,7 @@ export default function VendorDispatch() {
       )}
       {overdueOrders.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-700">
-          ⏰ <span className="font-semibold">{overdueOrders.length} accepted order{overdueOrders.length !== 1 ? 's' : ''}</span> {overdueOrders.length === 1 ? 'has' : 'have'} been waiting 3+ days without dispatch.
+          <AlertTriangle size={14} className="inline mr-1" /><span className="font-semibold">{overdueOrders.length} accepted order{overdueOrders.length !== 1 ? 's' : ''}</span> {overdueOrders.length === 1 ? 'has' : 'have'} been waiting 3+ days without dispatch.
           {' '}<span className="text-orange-500">{overdueOrders.map((o) => o.order_number).join(', ')}</span>
         </div>
       )}
@@ -393,7 +393,7 @@ export default function VendorDispatch() {
 
         {accepted.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
-            <p className="text-3xl mb-3">✅</p>
+            <CheckCircle size={32} className="mx-auto mb-3 text-green-400" />
             <p className="text-sm font-semibold text-gray-700">Nothing to dispatch</p>
             <p className="text-xs text-gray-400 mt-1">All accepted orders have been sent</p>
           </div>
@@ -449,7 +449,7 @@ export default function VendorDispatch() {
                     {g.state && <span className="text-xs text-gray-400">{g.state}</span>}
                     <span className="text-sm text-blue-600">{g.orders.length} order{g.orders.length !== 1 ? 's' : ''}</span>
                     {returnsByCity[g.city] && (
-                      <span className="text-xs text-amber-600">+ {returnsByCity[g.city].returns.length} return{returnsByCity[g.city].returns.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-indigo-600">+ {returnsByCity[g.city].returns.length} return{returnsByCity[g.city].returns.length !== 1 ? 's' : ''}</span>
                     )}
                   </div>
                   <button
@@ -465,7 +465,7 @@ export default function VendorDispatch() {
               <div className="mt-3 space-y-2">
                 <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">Return pickups (no new dispatch)</p>
                 {Object.values(returnsByCity).filter((g) => !ordersByCity[g.city]).map((g) => (
-                  <div key={g.city} className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <div key={g.city} className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
                     <p className="text-sm font-semibold text-gray-800">{g.city} — {g.returns.length} return{g.returns.length !== 1 ? 's' : ''}</p>
                     {g.returns.map((r) => (
                       <p key={r.id} className="text-xs text-gray-500">{r.return_number} · {r.retailer_name}</p>
@@ -503,7 +503,7 @@ export default function VendorDispatch() {
         </div>
         {filteredDispatches.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
-            <p className="text-3xl mb-3">📦</p>
+            <Package size={32} className="mx-auto mb-3 text-gray-300" />
             <p className="text-sm font-semibold text-gray-700">No dispatches yet</p>
             <p className="text-xs text-gray-400 mt-1">Dispatched orders will appear here</p>
           </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Clock, Wrench, Store, Building2 } from 'lucide-react';
 import { register } from '../api/auth.api';
 import { useAuth } from '../context/AuthContext';
 
@@ -37,7 +38,7 @@ export default function Signup() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-sm p-8 text-center">
-          <p className="text-4xl mb-4">⏳</p>
+          <Clock size={36} className="mx-auto mb-4 text-indigo-400" />
           <h2 className="text-lg font-bold text-gray-900 mb-2">Application Submitted</h2>
           <p className="text-sm text-gray-500 mb-6">Your vendor account is pending admin approval. You will receive a notification once approved.</p>
           <Link to="/login" className="text-sm text-blue-600 hover:underline">← Back to Login</Link>
@@ -59,7 +60,7 @@ export default function Signup() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-md p-8">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-2xl">🔧</span>
+          <Wrench size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-blue-600">Parts Order</h1>
         </div>
         <p className="text-sm text-gray-500 mb-6">Create your account</p>
@@ -70,13 +71,13 @@ export default function Signup() {
             <button key={r} type="button" onClick={() => setRole(r)}
               className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors capitalize
                 ${role === r ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
-              {r === 'retailer' ? '🏪 Retailer' : '🏭 Vendor'}
+              {r === 'retailer' ? <><Store size={14} className="inline mr-1" />Retailer</> : <><Building2 size={14} className="inline mr-1" />Vendor</>}
             </button>
           ))}
         </div>
 
         {role === 'vendor' && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-2 rounded-lg mb-5">
+          <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs px-3 py-2 rounded-lg mb-5">
             Vendor accounts require admin approval before you can log in.
           </div>
         )}

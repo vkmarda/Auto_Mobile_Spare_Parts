@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckCircle, Camera, Clock, Package, MapPin } from 'lucide-react';
 import { getVendors } from '../../api/vendors.api';
 import { placePhotoOrder } from '../../api/orders.api';
 import { toWebP, uploadPhoto } from '../../utils/uploadPhoto';
@@ -89,18 +90,18 @@ export default function PhotoOrderPage() {
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-sm w-full">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✅</span>
+            <CheckCircle size={30} className="text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">Order Placed!</h2>
           <p className="font-mono font-bold text-gray-800 mb-5">{placedOrder?.order_number}</p>
           <div className="space-y-3 text-left mb-6">
             {[
-              { icon: '📷', label: 'Photo shared with supplier' },
-              { icon: '⏳', label: 'Supplier will confirm shortly' },
-              { icon: '📦', label: 'Parts will be ready for pickup' },
-            ].map(({ icon, label }) => (
+              { icon: Camera,       cls: 'text-blue-500',  label: 'Photo shared with supplier' },
+              { icon: Clock,        cls: 'text-indigo-500',label: 'Supplier will confirm shortly' },
+              { icon: Package,      cls: 'text-gray-400',  label: 'Parts will be ready for pickup' },
+            ].map(({ icon: Icon, cls, label }) => (
               <div key={label} className="flex items-center gap-3 text-sm text-gray-600">
-                <span>{icon}</span><span>{label}</span>
+                <Icon size={16} className={cls} /><span>{label}</span>
               </div>
             ))}
           </div>
@@ -140,7 +141,7 @@ export default function PhotoOrderPage() {
               </div>
             ) : (
               <button className="w-full p-10 text-center" onClick={() => fileRef.current?.click()}>
-                <span className="text-5xl block mb-3">📷</span>
+                <Camera size={48} className="mx-auto mb-3 text-gray-400" />
                 <p className="text-base font-semibold text-gray-700 mb-1">Upload a photo of the part</p>
                 <p className="text-sm text-gray-400">Tap to select · or drag and drop</p>
               </button>
@@ -228,7 +229,7 @@ export default function PhotoOrderPage() {
                       String(vendorId) === String(v.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-blue-300 hover:bg-gray-50'
                     }`}>
                     <p className="text-sm font-semibold text-gray-900">{v.name}</p>
-                    {(v.city || v.state) && <p className="text-xs text-gray-400 mt-0.5">📍 {[v.city, v.state].filter(Boolean).join(', ')}</p>}
+                    {(v.city || v.state) && <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><MapPin size={11} />{[v.city, v.state].filter(Boolean).join(', ')}</p>}
                   </button>
                 ))}
               </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getProducts, createProduct, updateProduct } from '../api/products.api';
+import { Package } from 'lucide-react';
 
 function StockBadge({ stock }) {
   if (stock === 0)   return <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded-full">Out of Stock</span>;
@@ -123,7 +124,7 @@ export default function VendorProducts() {
 
       {products.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
-          <p className="text-3xl mb-2">📦</p>
+          <Package size={32} className="mx-auto mb-2 text-gray-300" />
           <p className="text-sm font-medium text-gray-500">No products yet. Add your first product.</p>
         </div>
       ) : (

@@ -19,7 +19,7 @@ const STATUS_CARDS = [
   { key: 'rejected', label: 'Rejected',   bg: 'bg-red-100',    text: 'text-red-700',    border: 'border-red-400',    activeBg: 'bg-red-200',    ring: 'ring-red-400'    },
 ];
 
-const MEDALS  = ['🥇', '🥈', '🥉'];
+const RANK_COLORS = ['text-amber-500', 'text-slate-400', 'text-amber-700'];
 const COLORS  = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#6366f1'];
 
 const Spinner = () => (
@@ -114,12 +114,12 @@ export default function VendorDashboard() {
   const alerts = [
     counts.pending > 0 && {
       key: 'pending',
-      label: `⚠️ ${counts.pending} order${counts.pending > 1 ? 's' : ''} pending action`,
+      label: `${counts.pending} order${counts.pending > 1 ? 's' : ''} need action`,
       onClick: () => { setTab('pending'); clearSel(); ordersRef.current?.scrollIntoView({ behavior: 'smooth' }); },
     },
     lowStockProducts.length > 0 && {
       key: 'stock',
-      label: `🔴 ${lowStockProducts.length} part${lowStockProducts.length > 1 ? 's' : ''} low on stock`,
+      label: `${lowStockProducts.length} part${lowStockProducts.length > 1 ? 's' : ''} low on stock`,
       onClick: () => demandRef.current?.scrollIntoView({ behavior: 'smooth' }),
     },
   ].filter(Boolean);
@@ -147,10 +147,10 @@ export default function VendorDashboard() {
 
       {/* Alert Bar */}
       {alerts.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-wrap gap-2">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex flex-wrap gap-2">
           {alerts.map((a) => (
             <button key={a.key} onClick={a.onClick}
-              className="bg-amber-100 hover:bg-amber-200 text-amber-800 text-sm font-medium rounded-full px-3 py-1 transition-colors">
+              className="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-sm font-medium rounded-full px-3 py-1 transition-colors">
               {a.label}
             </button>
           ))}
@@ -392,11 +392,10 @@ export default function VendorDashboard() {
           <p className="text-sm text-gray-400 py-4">{tab === 'all' ? 'No orders yet.' : `No ${tab} orders.`}</p>
         ) : (
           <div className="space-y-1.5">
-            <div className="hidden md:grid px-4 py-1.5 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide"
+            <div className="hidden md:grid px-4 py-1.5 gap-x-3 text-xs font-medium text-gray-400 uppercase tracking-wide border-l-4 border-l-transparent"
               style={{ gridTemplateColumns: COLS }}>
-              <div /><span>Order</span><span>Phone</span><span>Retailer</span>
-              <span>Date</span><span>Items</span><span>Location</span>
-              <span>Status</span><span />
+              <div /><span>Retailer</span><span>Phone</span><span>Date</span>
+              <span>Units</span><span>Location</span><span>Status</span><span>Action</span><span />
             </div>
             {filtered.map((order) => (
               <VendorOrderCard key={order.id} order={order}
@@ -430,7 +429,7 @@ export default function VendorDashboard() {
               <tbody>
                 {stats.top_retailers.map((r, i) => (
                   <tr key={r.name + i} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 text-lg">{MEDALS[i] || `#${i + 1}`}</td>
+                    <td className={`px-4 py-3 text-sm font-bold ${RANK_COLORS[i] || 'text-gray-400'}`}>#{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{r.name}</td>
                     <td className="px-4 py-3 text-gray-500">{[r.city, r.state].filter(Boolean).join(', ') || '—'}</td>
                     <td className="px-4 py-3 text-right text-gray-600">{r.order_count}</td>

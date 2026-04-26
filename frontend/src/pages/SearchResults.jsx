@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import { getProducts } from '../api/products.api';
 import { useCart } from '../context/CartContext';
 import ProductCard from '../components/ProductCard';
@@ -114,12 +115,12 @@ export default function SearchResults() {
           </div>
         ) : !q ? (
           <div className="text-center py-20 text-gray-400">
-            <p className="text-4xl mb-3">🔍</p>
+            <Search size={36} className="mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-gray-500">Type something to search</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <p className="text-4xl mb-3">🔍</p>
+            <Search size={36} className="mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-gray-500">No products found for &ldquo;{q}&rdquo;</p>
             <p className="text-sm mt-1">Try a different name or SKU</p>
           </div>

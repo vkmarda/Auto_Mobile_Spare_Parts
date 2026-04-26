@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Check, Wrench } from 'lucide-react';
 import { getCategories } from '../../api/vehicles.api';
 import { useOrderFlow } from '../../context/OrderFlowContext';
 
@@ -17,7 +18,7 @@ function ProgressBar({ current }) {
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
                 ${done ? 'bg-blue-600 border-blue-600 text-white' : active ? 'border-blue-600 bg-white text-blue-600' : 'border-gray-200 bg-white text-gray-400'}`}>
-                {done ? '✓' : step}
+                {done ? <Check size={14} strokeWidth={3} /> : step}
               </div>
               <span className={`text-xs mt-1 font-medium whitespace-nowrap ${active ? 'text-blue-600' : done ? 'text-blue-400' : 'text-gray-400'}`}>{label}</span>
             </div>
@@ -85,7 +86,9 @@ export default function CategoryStep() {
             {categories.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).map((c) => (
               <button key={c.id} onClick={() => select(c)}
                 className="bg-white rounded-xl p-5 border-2 border-gray-100 hover:border-blue-400 shadow-sm text-center transition-all hover:scale-105 hover:shadow-md">
-                <span className="text-3xl block mb-2">{c.icon || '🔩'}</span>
+                {c.icon
+                  ? <span className="text-3xl block mb-2">{c.icon}</span>
+                  : <Wrench size={32} className="mx-auto mb-2 text-gray-500" />}
                 <p className="text-xs font-semibold text-gray-900 leading-tight">{c.name}</p>
               </button>
             ))}

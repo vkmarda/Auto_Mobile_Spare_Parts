@@ -7,7 +7,7 @@ const fmt = (d) => d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', mon
 const TYPE_DOT = {
   placed: 'bg-blue-500', accepted: 'bg-green-500', rejected: 'bg-red-500',
   dispatched: 'bg-purple-500', delivered: 'bg-teal-500', confirmed: 'bg-green-600',
-  return_requested: 'bg-amber-400', return_accepted: 'bg-blue-400',
+  return_requested: 'bg-indigo-400', return_accepted: 'bg-blue-400',
   return_dispatched: 'bg-purple-400', return_received: 'bg-teal-400',
   return_settled: 'bg-green-400', return_cancelled: 'bg-gray-400',
 };

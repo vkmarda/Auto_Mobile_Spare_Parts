@@ -50,12 +50,32 @@ function Sparkline({ data }) {
   );
 }
 
-export default function StatCard({ title, value, iconType, trend, sparkData }) {
+export default function StatCard({ title, value, iconType, trend, sparkData, compact }) {
   const up   = trend != null && trend > 0;
   const down = trend != null && trend < 0;
 
   const bg        = up ? 'bg-green-50 border-green-200' : down ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200';
   const iconColor = up ? 'text-green-600'              : down ? 'text-red-600'             : 'text-gray-500';
+
+  if (compact) {
+    return (
+      <div className={`rounded-xl shadow-sm border px-3 py-3 ${bg}`}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`}>{ICONS[iconType]}</span>
+          {trend != null && (
+            <span className={`flex items-center gap-0.5 text-[10px] font-bold ${up ? 'text-green-600' : 'text-red-600'}`}>
+              <svg viewBox="0 0 10 12" className="w-2 h-2.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                {up ? <path d="M5 11V1M1 5l4-4 4 4" /> : <path d="M5 1v10M1 7l4 4 4-4" />}
+              </svg>
+              {Math.abs(trend).toFixed(0)}%
+            </span>
+          )}
+        </div>
+        <p className="text-xl font-bold text-gray-900 leading-none">{value}</p>
+        <p className="text-[10px] text-gray-500 mt-1 leading-tight">{title}</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-xl shadow-sm border p-5 ${bg}`}>

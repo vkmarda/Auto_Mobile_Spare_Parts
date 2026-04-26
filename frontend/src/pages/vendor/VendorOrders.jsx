@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Printer, Search } from 'lucide-react';
 import { getAllOrders } from '../../api/vendor.api';
 import { getReturns } from '../../api/returns.api';
 import { getOrderDetail } from '../../api/detail.api';
@@ -8,6 +9,20 @@ import { printOrders } from '../../utils/printOrders';
 import Skeleton from '../../components/Skeleton';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+function AgeCell({ createdAt, status }) {
+  const days = Math.floor((Date.now() - new Date(createdAt)) / 86400000);
+  const age  = days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
+  const urgency = status === 'pending' && days >= 5 ? 'text-red-500 font-semibold'
+                : status === 'pending' && days >= 3 ? 'text-orange-500 font-semibold'
+                : 'text-gray-400';
+  return (
+    <div>
+      <p className="text-xs text-gray-500">{fmtDate(createdAt)}</p>
+      <p className={`text-xs ${urgency}`}>{age}</p>
+    </div>
+  );
+}
 
 const STATUSES = [
   { key: 'all',        label: 'All' },
@@ -194,7 +209,7 @@ export default function VendorOrders() {
             <button onClick={downloadPdf} disabled={exporting || exporting2}
               className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
               {exporting2 && <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />}
-              {exporting2 ? 'Preparing…' : '🖨 PDF'}
+              {exporting2 ? 'Preparing…' : <><Printer size={13} className="inline mr-1" />PDF</>}
             </button>
           </div>
         </div>
@@ -254,7 +269,7 @@ export default function VendorOrders() {
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
-          <p className="text-3xl mb-3">🔍</p>
+          <Search size={32} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-semibold text-gray-700">No orders found</p>
           <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
         </div>
@@ -285,7 +300,7 @@ export default function VendorOrders() {
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">{o.retailer_name}</td>
                       <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">{o.retailer_city || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">{fmtDate(o.created_at)}</td>
+                      <td className="px-4 py-3 hidden sm:table-cell"><AgeCell createdAt={o.created_at} status={o.status} /></td>
                       <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         {o.status === 'rejected' && o.rejection_reason ? (
@@ -299,7 +314,7 @@ export default function VendorOrders() {
                       <td className="px-4 py-3">
                         {latestReturn ? (
                           <button onClick={() => setDetail({ type: 'return', id: latestReturn.id })}
-                            className="font-mono text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded hover:bg-amber-100">
+                            className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded hover:bg-indigo-100">
                             {latestReturn.return_number}
                           </button>
                         ) : (

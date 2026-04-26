@@ -4,20 +4,27 @@ import { useCart } from '../context/CartContext';
 import { useEffect, useState } from 'react';
 import { getAllOrders } from '../api/vendor.api';
 import { getReturns } from '../api/returns.api';
+import { Wrench, LayoutDashboard, Clock, ClipboardList, Truck, RotateCcw, Store, Package, Home, Search } from 'lucide-react';
 
 const roleBadge = {
   retailer: 'bg-blue-50 text-blue-600 border border-blue-200',
-  vendor:   'bg-amber-50 text-amber-700 border border-amber-200',
+  vendor:   'bg-indigo-50 text-indigo-700 border border-indigo-200',
 };
 
 const VENDOR_NAV = [
-  { to: '/vendor',           label: 'Dashboard', emoji: '📊', dot: null },
-  { to: '/vendor/pending',   label: 'Pending',   emoji: '⏳', dot: 'pending' },
-  { to: '/vendor/orders',    label: 'Orders',    emoji: '📋', dot: null },
-  { to: '/vendor/dispatch',  label: 'Dispatch',  emoji: '🚚', dot: 'accepted' },
-  { to: '/vendor/returns',   label: 'Returns',   emoji: '↩️', dot: 'returns' },
-  { to: '/vendor/retailers', label: 'Retailers', emoji: '🏪', dot: null },
-  { to: '/vendor/products',  label: 'Products',  emoji: '📦', dot: null },
+  { to: '/vendor',           label: 'Dashboard', icon: LayoutDashboard, dot: null },
+  { to: '/vendor/pending',   label: 'Pending',   icon: Clock,           dot: 'pending' },
+  { to: '/vendor/orders',    label: 'All Orders',icon: ClipboardList,   dot: null },
+  { to: '/vendor/dispatch',  label: 'Dispatch',  icon: Truck,           dot: 'accepted' },
+  { to: '/vendor/returns',   label: 'Returns',   icon: RotateCcw,       dot: 'returns' },
+  { to: '/vendor/retailers', label: 'Retailers', icon: Store,           dot: null },
+  { to: '/vendor/products',  label: 'Products',  icon: Package,         dot: null },
+];
+
+const RETAILER_MOBILE_NAV = [
+  { to: '/retailer', label: 'Home',      icon: Home },
+  { to: '/products', label: 'Products',  icon: Search },
+  { to: '/orders',   label: 'My Orders', icon: Package },
 ];
 
 export default function Navbar() {
@@ -65,7 +72,7 @@ export default function Navbar() {
         to={to}
         className={`relative flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
           isActive(to)
-            ? 'bg-amber-50 text-amber-700'
+            ? 'bg-indigo-50 text-indigo-700'
             : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
         }`}
       >
@@ -79,18 +86,18 @@ export default function Navbar() {
     );
   };
 
-  const mobileLink = (to, label, emoji, dot = null) => {
+  const mobileLink = (to, label, NavIcon, dot = null) => {
     const badge = getDot(dot);
     return (
       <Link
         key={to}
         to={to}
         className={`flex items-center gap-3 px-4 py-4 text-sm font-medium border-b border-gray-100 last:border-0 transition-colors ${
-          isActive(to) ? 'text-amber-700 bg-amber-50' : 'text-gray-700 hover:bg-gray-50'
+          isActive(to) ? 'text-indigo-700 bg-indigo-50' : 'text-gray-700 hover:bg-gray-50'
         }`}
       >
-        {isActive(to) && <span className="w-1 h-5 bg-amber-600 rounded-full flex-shrink-0" />}
-        {emoji && <span className="text-base">{emoji}</span>}
+        {isActive(to) && <span className="w-1 h-5 bg-indigo-600 rounded-full flex-shrink-0" />}
+        {NavIcon && <NavIcon size={17} className="flex-shrink-0 text-gray-400" />}
         <span className="flex-1">{label}</span>
         {badge && (
           <span className={`w-5 h-5 ${badge.cls} text-white text-xs font-bold rounded-full flex items-center justify-center`}>
@@ -106,8 +113,8 @@ export default function Navbar() {
       <div className="px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-amber-600 rounded-lg flex items-center justify-center text-white text-base shadow-sm">
-            🔧
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+            <Wrench size={16} />
           </div>
           <span className="text-lg font-bold text-gray-900 tracking-tight">Purzaa</span>
         </div>
@@ -128,7 +135,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           {user.role === 'retailer' && (
             <button type="button" onClick={() => navigate('/cart')}
-              className="relative p-2 text-gray-500 hover:text-amber-600 hover:bg-gray-100 rounded-lg transition-colors">
+              className="relative p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M3 3h2l.4 2M7 13h10l4-9H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -173,21 +180,17 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-gray-100 shadow-lg">
           <div className="px-0 py-1">
-            {user.role === 'retailer' && (
-              <>
-                {mobileLink('/retailer', 'Home',      '🏠')}
-                {mobileLink('/products', 'Products',  '🔍')}
-                {mobileLink('/orders',   'My Orders', '📦')}
-              </>
+            {user.role === 'retailer' && RETAILER_MOBILE_NAV.map(({ to, label, icon }) =>
+              mobileLink(to, label, icon)
             )}
-            {user.role === 'vendor' && VENDOR_NAV.map(({ to, label, emoji, dot }) =>
-              mobileLink(to, label, emoji, dot)
+            {user.role === 'vendor' && VENDOR_NAV.map(({ to, label, icon, dot }) =>
+              mobileLink(to, label, icon, dot)
             )}
           </div>
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-amber-100 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold text-amber-700">{user.name.charAt(0).toUpperCase()}</span>
+              <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold text-indigo-700">{user.name.charAt(0).toUpperCase()}</span>
               </div>
               <span className="text-sm font-medium text-gray-700">{user.name}</span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadge[user.role]}`}>{user.role}</span>

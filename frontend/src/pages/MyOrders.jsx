@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getOrders, getOrderById, confirmOrder, cancelOrder } from '../api/orders.api';
+import { Package, Clock, CheckCircle, Truck, Inbox, Check, XCircle, RotateCcw, AlertTriangle, Camera, MapPin } from 'lucide-react';
+import { getOrders, getOrderById, confirmOrder, cancelOrder, confirmPartialOrder } from '../api/orders.api';
 import { createReturn, cancelReturn, getReturns } from '../api/returns.api';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -11,72 +12,81 @@ const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 const BORDER = {
-  pending:           'border-l-amber-400',
-  accepted:          'border-l-sky-400',
-  dispatched:        'border-l-violet-400',
-  delivered:         'border-l-teal-400',
-  confirmed:         'border-l-green-500',
-  rejected:          'border-l-red-400',
-  cancelled:         'border-l-gray-300',
-  return_requested:  'border-l-amber-400',
-  return_accepted:   'border-l-sky-400',
-  return_dispatched:  'border-l-violet-400',
-  return_received:    'border-l-teal-400',
-  return_settled:     'border-l-green-500',
-  return_cancelled:   'border-l-gray-300',
+  pending:              'border-l-indigo-400',
+  accepted:             'border-l-sky-400',
+  partially_accepted:   'border-l-orange-400',
+  partial_confirmed:    'border-l-sky-400',
+  dispatched:           'border-l-violet-400',
+  delivered:            'border-l-teal-400',
+  confirmed:            'border-l-green-500',
+  rejected:             'border-l-red-400',
+  cancelled:            'border-l-gray-300',
+  return_requested:     'border-l-indigo-400',
+  return_accepted:      'border-l-sky-400',
+  return_dispatched:    'border-l-violet-400',
+  return_received:      'border-l-teal-400',
+  return_settled:       'border-l-green-500',
+  return_cancelled:     'border-l-gray-300',
 };
 
 const BADGE_CLS = {
-  pending:           'bg-amber-100 text-amber-800',
-  accepted:          'bg-sky-100 text-sky-800',
-  dispatched:        'bg-violet-100 text-violet-800',
-  delivered:         'bg-teal-100 text-teal-800',
-  confirmed:         'bg-green-100 text-green-800',
-  rejected:          'bg-red-100 text-red-700',
-  cancelled:         'bg-gray-100 text-gray-500',
-  return_requested:  'bg-amber-100 text-amber-800',
-  return_accepted:   'bg-sky-100 text-sky-800',
-  return_dispatched:  'bg-violet-100 text-violet-800',
-  return_received:    'bg-teal-100 text-teal-800',
-  return_settled:     'bg-green-100 text-green-800',
-  return_cancelled:   'bg-gray-100 text-gray-500',
+  pending:              'bg-indigo-100 text-indigo-800',
+  accepted:             'bg-sky-100 text-sky-800',
+  partially_accepted:   'bg-orange-100 text-orange-800',
+  partial_confirmed:    'bg-sky-100 text-sky-800',
+  dispatched:           'bg-violet-100 text-violet-800',
+  delivered:            'bg-teal-100 text-teal-800',
+  confirmed:            'bg-green-100 text-green-800',
+  rejected:             'bg-red-100 text-red-700',
+  cancelled:            'bg-gray-100 text-gray-500',
+  return_requested:     'bg-indigo-100 text-indigo-800',
+  return_accepted:      'bg-sky-100 text-sky-800',
+  return_dispatched:    'bg-violet-100 text-violet-800',
+  return_received:      'bg-teal-100 text-teal-800',
+  return_settled:       'bg-green-100 text-green-800',
+  return_cancelled:     'bg-gray-100 text-gray-500',
 };
 
 const BADGE_LABELS = {
-  pending:           'Pending — Awaiting vendor confirmation',
-  accepted:          'Accepted — Vendor confirmed, preparing for dispatch',
-  dispatched:        'Dispatched — On its way to you',
-  delivered:         'Delivered — Confirm when received',
-  confirmed:         'Confirmed — Order complete',
-  rejected:          'Rejected — Vendor declined',
-  cancelled:         'Cancelled',
-  return_requested:  'Return Requested',
-  return_accepted:   'Return Accepted',
-  return_dispatched:  'Return in Transit',
-  return_received:    'Return Received',
-  return_settled:     'Return Settled',
-  return_cancelled:   'Return Cancelled',
+  pending:              'Pending — Awaiting vendor confirmation',
+  accepted:             'Accepted — Vendor confirmed, preparing for dispatch',
+  partially_accepted:   'Partially Accepted — Review quantities and confirm',
+  partial_confirmed:    'Partial Confirmed — Waiting for vendor to dispatch',
+  dispatched:           'Dispatched — On its way to you',
+  delivered:            'Delivered — Confirm when received',
+  confirmed:            'Confirmed — Order complete',
+  rejected:             'Rejected — Vendor declined',
+  cancelled:            'Cancelled',
+  return_requested:     'Return Requested',
+  return_accepted:      'Return Accepted',
+  return_dispatched:    'Return in Transit',
+  return_received:      'Return Received',
+  return_settled:       'Return Settled',
+  return_cancelled:     'Return Cancelled',
 };
 
 const BADGE_SHORT = {
-  pending:           'Pending',
-  accepted:          'Accepted',
-  dispatched:        'Dispatched',
-  delivered:         'Delivered',
-  confirmed:         'Confirmed',
-  rejected:          'Rejected',
-  cancelled:         'Cancelled',
-  return_requested:  'Return Requested',
-  return_accepted:   'Return Accepted',
-  return_dispatched:  'Return in Transit',
-  return_received:    'Return Received',
-  return_settled:     'Return Settled',
-  return_cancelled:   'Return Cancelled',
+  pending:              'Pending',
+  accepted:             'Accepted',
+  partially_accepted:   'Partially Accepted',
+  partial_confirmed:    'Partial Confirmed',
+  dispatched:           'Dispatched',
+  delivered:            'Delivered',
+  confirmed:            'Confirmed',
+  rejected:             'Rejected',
+  cancelled:            'Cancelled',
+  return_requested:     'Return Requested',
+  return_accepted:      'Return Accepted',
+  return_dispatched:    'Return in Transit',
+  return_received:      'Return Received',
+  return_settled:       'Return Settled',
+  return_cancelled:     'Return Cancelled',
 };
 
 const TABS = [
   { key: 'all',        label: 'All' },
   { key: 'pending',    label: 'Pending' },
+  { key: 'partial',    label: 'Partial' },
   { key: 'accepted',   label: 'Accepted' },
   { key: 'dispatched', label: 'Dispatched' },
   { key: 'delivered',  label: 'Delivered' },
@@ -87,14 +97,14 @@ const TABS = [
 ];
 
 const EMPTY = {
-  all:        { emoji: '📦', msg: "You haven't placed any orders yet.", sub: 'Start by browsing products.', link: true },
-  pending:    { emoji: '⏳', msg: 'No pending orders right now.',   sub: null, link: false },
-  accepted:   { emoji: '✅', msg: 'No accepted orders yet.',         sub: null, link: false },
-  dispatched: { emoji: '🚚', msg: 'No dispatched orders.',           sub: null, link: false },
-  delivered:  { emoji: '📬', msg: 'No delivered orders yet.',        sub: null, link: false },
-  confirmed:  { emoji: '✔️', msg: 'No confirmed orders.',            sub: null, link: false },
-  rejected:   { emoji: '❌', msg: 'No rejected orders.',             sub: null, link: false },
-  returns:    { emoji: '↩️', msg: 'No return requests.',             sub: null, link: false },
+  all:        { icon: Package,      msg: "You haven't placed any orders yet.", sub: 'Start by browsing products.', link: true },
+  pending:    { icon: Clock,        msg: 'No pending orders right now.',   sub: null, link: false },
+  accepted:   { icon: CheckCircle,  msg: 'No accepted orders yet.',         sub: null, link: false },
+  dispatched: { icon: Truck,        msg: 'No dispatched orders.',           sub: null, link: false },
+  delivered:  { icon: Inbox,        msg: 'No delivered orders yet.',        sub: null, link: false },
+  confirmed:  { icon: Check,        msg: 'No confirmed orders.',            sub: null, link: false },
+  rejected:   { icon: XCircle,      msg: 'No rejected orders.',             sub: null, link: false },
+  returns:    { icon: RotateCcw,    msg: 'No return requests.',             sub: null, link: false },
 };
 
 const COLS = '110px 1fr 120px 1fr 110px 130px';
@@ -285,8 +295,8 @@ function ReturnModal({ order, details, onClose, onSuccess }) {
             )}
             {photos.length < 5 && (
               <button type="button" onClick={() => fileRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 hover:border-amber-400 rounded-lg py-3 text-sm text-gray-400 hover:text-amber-600 transition-colors">
-                📷 {photos.length === 0 ? 'Add photos (min 1 required)' : 'Add more photos'}
+                className="w-full border-2 border-dashed border-gray-200 hover:border-indigo-400 rounded-lg py-3 text-sm text-gray-400 hover:text-indigo-600 transition-colors">
+                <Camera size={14} className="inline mr-1" />{photos.length === 0 ? 'Add photos (min 1 required)' : 'Add more photos'}
               </button>
             )}
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
@@ -303,7 +313,7 @@ function ReturnModal({ order, details, onClose, onSuccess }) {
             <button type="button" onClick={onClose}
               className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={submitting}
-              className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
               {submitting && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {submitting ? 'Uploading & submitting…' : 'Submit Return Request'}
             </button>
@@ -324,9 +334,10 @@ function OrderCard({ order, onRefresh, returnData }) {
   const { addToCart } = useCart();
   const [details, setDetails]       = useState(null);
   const [detailLoading, setDetailLoading] = useState(true);
-  const [reordering, setReordering]   = useState(false);
-  const [confirming, setConfirming]   = useState(false);
-  const [cancelling, setCancelling]   = useState(false);
+  const [reordering, setReordering]       = useState(false);
+  const [confirming, setConfirming]       = useState(false);
+  const [confirmingPartial, setConfirmingPartial] = useState(false);
+  const [cancelling, setCancelling]       = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [showReturn, setShowReturn]   = useState(false);
   const [returnSuccess, setReturnSuccess] = useState('');
@@ -356,6 +367,13 @@ function OrderCard({ order, onRefresh, returnData }) {
   const handleConfirm = async () => {
     setConfirming(true);
     try { await confirmOrder(order.id); showToast('Delivery confirmed!'); onRefresh(); } finally { setConfirming(false); }
+  };
+
+  const handleConfirmPartial = async () => {
+    setConfirmingPartial(true);
+    try { await confirmPartialOrder(order.id); showToast('Partial acceptance confirmed!'); onRefresh(); }
+    catch (err) { showToast(err.response?.data?.error || 'Could not confirm'); }
+    finally { setConfirmingPartial(false); }
   };
 
   const handleCancelOrder = () => {
@@ -412,8 +430,13 @@ function OrderCard({ order, onRefresh, returnData }) {
       }`}>
 
         {order.status === 'delivered' && (
-          <div className="bg-teal-100 border-b border-teal-200 px-4 py-2 text-xs text-teal-800 font-medium">
-            📦 Parts arrived? Tap <span className="font-bold">Confirm Receipt</span> to close this order.
+          <div className="bg-teal-100 border-b border-teal-200 px-4 py-2 text-xs text-teal-800 font-medium flex items-center gap-1.5">
+            <Package size={13} className="flex-shrink-0" />Parts arrived? Tap <span className="font-bold">Confirm Receipt</span> to close this order.
+          </div>
+        )}
+        {order.status === 'partially_accepted' && (
+          <div className="bg-orange-50 border-b border-orange-200 px-4 py-2 text-xs text-orange-800 font-medium flex items-center gap-1.5">
+            <AlertTriangle size={13} className="flex-shrink-0" />Vendor can only partially fulfill this order. Review the approved quantities below and confirm to proceed.
           </div>
         )}
         {/* Header */}
@@ -422,7 +445,7 @@ function OrderCard({ order, onRefresh, returnData }) {
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="font-mono font-bold text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded">{order.order_number}</span>
               {order.order_type === 'photo' && (
-                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">📷 Photo</span>
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1"><Camera size={10} />Photo</span>
               )}
               <Badge status={order.status} />
             </div>
@@ -456,15 +479,15 @@ function OrderCard({ order, onRefresh, returnData }) {
             <div className="space-y-4">
               <StatusTimeline status={order.status} />
               {returnSuccess && (
-                <p className="text-sm text-green-600 font-medium bg-green-50 px-3 py-2 rounded-lg">✅ {returnSuccess}</p>
+                <p className="text-sm text-green-600 font-medium bg-green-50 px-3 py-2 rounded-lg flex items-center gap-1.5"><CheckCircle size={14} />{returnSuccess}</p>
               )}
 
               {/* Return request details */}
               {returnData && RETURN_STATES.includes(order.status) && (
-                <div className="rounded-lg border border-amber-200 overflow-hidden">
-                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-100">
-                    <span className="text-xs font-bold text-amber-700">↩ Return</span>
-                    <span className="font-mono text-xs text-amber-600">{returnData.return_number}</span>
+                <div className="rounded-lg border border-indigo-200 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-indigo-50 border-b border-indigo-100">
+                    <span className="text-xs font-bold text-indigo-700">↩ Return</span>
+                    <span className="font-mono text-xs text-indigo-600">{returnData.return_number}</span>
                     <Badge status={returnData.status} />
                     {returnData.reason && (
                       <span className="text-xs text-gray-400 italic truncate max-w-[160px]">"{returnData.reason}"</span>
@@ -508,7 +531,7 @@ function OrderCard({ order, onRefresh, returnData }) {
                     <div className="flex flex-wrap gap-2 px-3 pb-3 pt-2">
                       {returnData.photos.map((url, i) => (
                         <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                          <img src={url} alt={`Return photo ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-amber-200 hover:opacity-80 transition-opacity" />
+                          <img src={url} alt={`Return photo ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-indigo-200 hover:opacity-80 transition-opacity" />
                         </a>
                       ))}
                     </div>
@@ -556,25 +579,36 @@ function OrderCard({ order, onRefresh, returnData }) {
                         <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Brand</th>
                         <th className="text-left pb-2 pr-3 font-medium hidden sm:table-cell">Model</th>
                         <th className="text-left pb-2 pr-3 font-medium">SKU</th>
-                        <th className="text-right pb-2 font-medium">Qty</th>
+                        <th className="text-right pb-2 font-medium">Ordered</th>
+                        {(order.status === 'partially_accepted' || order.status === 'partial_confirmed') && (
+                          <th className="text-right pb-2 pl-2 font-medium text-orange-600">Approved</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
-                      {details.items.map((item) => (
-                        <tr key={item.id} className="border-b border-gray-100 last:border-0">
-                          <td className="py-1.5 pr-3 text-gray-800 font-medium">{item.part_name || item.product_name}</td>
-                          <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_brand || '—'}</td>
-                          <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_model || '—'}</td>
-                          <td className="py-1.5 pr-3 text-gray-400 font-mono text-xs">{item.sku}</td>
-                          <td className="py-1.5 text-right font-semibold text-gray-800">{item.quantity}</td>
-                        </tr>
-                      ))}
+                      {details.items.map((item) => {
+                        const isReduced = item.approved_quantity != null && item.approved_quantity < item.quantity;
+                        return (
+                          <tr key={item.id} className={`border-b border-gray-100 last:border-0 ${isReduced ? 'bg-orange-50' : ''}`}>
+                            <td className="py-1.5 pr-3 text-gray-800 font-medium">{item.part_name || item.product_name}</td>
+                            <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_brand || '—'}</td>
+                            <td className="py-1.5 pr-3 text-gray-500 hidden sm:table-cell">{item.vehicle_model || '—'}</td>
+                            <td className="py-1.5 pr-3 text-gray-400 font-mono text-xs">{item.sku}</td>
+                            <td className={`py-1.5 text-right font-semibold ${isReduced ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{item.quantity}</td>
+                            {(order.status === 'partially_accepted' || order.status === 'partial_confirmed') && (
+                              <td className={`py-1.5 pl-2 text-right font-bold ${item.approved_quantity === 0 ? 'text-red-500' : 'text-orange-700'}`}>
+                                {item.approved_quantity != null ? item.approved_quantity : item.quantity}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
               )}
-              {details.notes && <p className="text-xs text-gray-500 italic">📝 {details.notes}</p>}
+              {details.notes && <p className="text-xs text-gray-500 italic">Notes: {details.notes}</p>}
               {/* Status timestamps (item 39) */}
               {details && (details.accepted_at || details.dispatched_at || details.delivered_at) && (
                 <div className="flex flex-wrap gap-3 text-xs text-gray-400 pt-1">
@@ -590,16 +624,23 @@ function OrderCard({ order, onRefresh, returnData }) {
                   <button onClick={handleConfirm} disabled={confirming}
                     className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
                     {confirming && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {confirming ? 'Confirming…' : '✓ Confirm Receipt'}
+                    {confirming ? 'Confirming…' : <><Check size={14} strokeWidth={3} />Confirm Receipt</>}
+                  </button>
+                )}
+                {order.status === 'partially_accepted' && (
+                  <button onClick={handleConfirmPartial} disabled={confirmingPartial}
+                    className="text-sm bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
+                    {confirmingPartial && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    {confirmingPartial ? 'Confirming…' : <><Check size={14} strokeWidth={3} />Confirm Partial</>}
                   </button>
                 )}
                 {order.status === 'confirmed' && (
                   <button onClick={handleReturnOpen}
-                    className="text-sm border border-amber-500 text-amber-600 hover:bg-amber-50 px-4 py-2 rounded-lg font-medium">
+                    className="text-sm border border-indigo-500 text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-lg font-medium">
                     Request Return
                   </button>
                 )}
-                {order.status === 'pending' && (
+                {(order.status === 'pending' || order.status === 'partially_accepted') && (
                   <button onClick={handleCancelOrder} disabled={cancellingOrder}
                     className="text-sm border border-red-300 text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
                     {cancellingOrder && <span className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />}
@@ -678,6 +719,7 @@ export default function MyOrders() {
   const counts = {
     all:        orders.length,
     pending:    orders.filter((o) => o.status === 'pending').length,
+    partial:    orders.filter((o) => o.status === 'partially_accepted' || o.status === 'partial_confirmed').length,
     accepted:   orders.filter((o) => o.status === 'accepted').length,
     dispatched: orders.filter((o) => o.status === 'dispatched').length,
     delivered:  orders.filter((o) => o.status === 'delivered').length,
@@ -689,8 +731,9 @@ export default function MyOrders() {
 
   const filtered = tab === 'returns'
     ? orders.filter((o) => o.status.startsWith('return_'))
+    : tab === 'partial' ? orders.filter((o) => o.status === 'partially_accepted' || o.status === 'partial_confirmed')
     : tab === 'all' ? orders : orders.filter((o) => o.status === tab);
-  const empty = EMPTY[tab] || { emoji: '📦', msg: 'No orders here.', sub: null, link: false };
+  const empty = EMPTY[tab] || { icon: Package, msg: 'No orders here.', sub: null, link: false };
 
   if (loading) return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto space-y-3">
@@ -706,7 +749,7 @@ export default function MyOrders() {
     <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-4xl mx-auto">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">My Orders</h1>
-        {user?.city && <p className="text-sm text-gray-400 mt-0.5">📍 {[user.city, user.state].filter(Boolean).join(', ')}</p>}
+        {user?.city && <p className="text-sm text-gray-400 mt-0.5 flex items-center gap-1"><MapPin size={12} />{[user.city, user.state].filter(Boolean).join(', ')}</p>}
       </div>
 
       <StatusLegend />
@@ -743,7 +786,7 @@ export default function MyOrders() {
 
       {filtered.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-4xl mb-3">{empty.emoji}</p>
+          {empty.icon && <empty.icon size={36} className="mx-auto mb-3 text-gray-300" />}
           <p className="font-semibold text-gray-700 mb-1">{empty.msg}</p>
           {empty.sub && <p className="text-sm text-gray-400 mb-4">{empty.sub}</p>}
           {empty.link && (

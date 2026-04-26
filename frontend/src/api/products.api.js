@@ -14,6 +14,11 @@ export const getProducts = async (filters = {}) => {
   return res.data
 }
 
+export const getVendorsByProduct = async (id) => {
+  const res = await client.get(`/products/${id}/vendors`)
+  return res.data
+}
+
 export const getProductById = async (id) => {
   const res = await client.get(`/products/${id}`)
   return res.data

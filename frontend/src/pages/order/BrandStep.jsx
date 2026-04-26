@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { getBrands } from '../../api/vehicles.api';
 import { useOrderFlow } from '../../context/OrderFlowContext';
 import OrderBreadcrumb from '../../components/OrderBreadcrumb';
@@ -29,7 +30,7 @@ function ProgressBar({ current }) {
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
                 ${done ? 'bg-blue-600 border-blue-600 text-white' : active ? 'border-blue-600 bg-white text-blue-600' : 'border-gray-200 bg-white text-gray-400'}`}>
-                {done ? '✓' : step}
+                {done ? <Check size={14} strokeWidth={3} /> : step}
               </div>
               <span className={`text-xs mt-1 font-medium whitespace-nowrap ${active ? 'text-blue-600' : done ? 'text-blue-400' : 'text-gray-400'}`}>{label}</span>
             </div>

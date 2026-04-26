@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ClipboardList } from 'lucide-react';
 import { getRetailerById } from '../../api/vendor.api';
 import RetailerOrderRow from '../../components/RetailerOrderRow';
 import Skeleton from '../../components/Skeleton';
@@ -92,7 +93,7 @@ export default function VendorRetailerDetail() {
       {/* Orders list */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 py-14 text-center">
-          <p className="text-3xl mb-3">📋</p>
+          <ClipboardList size={32} className="mx-auto mb-3 text-gray-300" />
           <p className="text-sm font-semibold text-gray-700">No orders</p>
           <p className="text-xs text-gray-400 mt-1">No orders match this filter</p>
         </div>

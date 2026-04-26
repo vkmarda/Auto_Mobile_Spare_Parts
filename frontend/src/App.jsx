@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, Outlet } from 'react-router-dom';
+import { Wrench } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar';
+import { ToastProvider } from './context/ToastContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProductList from './pages/ProductList';
@@ -23,6 +24,9 @@ import VendorOrderDetail from './pages/VendorOrderDetail';
 import VendorOrders from './pages/vendor/VendorOrders';
 import VendorRetailers from './pages/vendor/VendorRetailers';
 import VendorRetailerDetail from './pages/vendor/VendorRetailerDetail';
+import VendorLayout from './components/VendorLayout';
+import RetailerLayout from './components/RetailerLayout';
+import RetailerProfile from './pages/RetailerProfile';
 
 function NotFound() {
   return (
@@ -67,7 +71,7 @@ export default function App() {
   if (warming) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f8f9fb', gap: '16px' }}>
-        <div style={{ fontSize: '40px' }}>🔧</div>
+        <Wrench size={40} style={{ color: '#1d4ed8' }} />
         <div style={{ fontSize: '20px', fontWeight: '700', color: '#111827' }}>Purzaa</div>
         <div style={{ fontSize: '14px', color: '#6b7280' }}>Starting up, please wait...</div>
         <div style={{ width: '200px', height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
@@ -80,42 +84,45 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
+      <ToastProvider>
         <Routes>
           <Route path="/login"  element={user ? <Navigate to={user.role === 'vendor' ? '/vendor' : user.role === 'admin' ? '/admin' : '/retailer'} replace /> : <Login />} />
           <Route path="/signup" element={user ? <Navigate to="/retailer" replace /> : <Signup />} />
 
-          {/* Retailer */}
-          <Route path="/retailer"           element={<RequireAuth role="retailer"><RetailerLanding /></RequireAuth>} />
-          <Route path="/"                   element={<RequireAuth role="retailer"><RetailerLanding /></RequireAuth>} />
-          <Route path="/order/vehicle-type" element={<RequireAuth role="retailer"><VehicleTypeStep /></RequireAuth>} />
-          <Route path="/order/brand"        element={<RequireAuth role="retailer"><BrandStep /></RequireAuth>} />
-          <Route path="/order/model"        element={<RequireAuth role="retailer"><ModelStep /></RequireAuth>} />
-          <Route path="/order/photo"        element={<RequireAuth role="retailer"><PhotoOrderPage /></RequireAuth>} />
-          <Route path="/products"           element={<RequireAuth role="retailer"><ProductList /></RequireAuth>} />
-          <Route path="/search"             element={<RequireAuth role="retailer"><SearchResults /></RequireAuth>} />
-          <Route path="/cart"               element={<RequireAuth role="retailer"><Cart /></RequireAuth>} />
-          <Route path="/orders"             element={<RequireAuth role="retailer"><MyOrders /></RequireAuth>} />
-
-          {/* Vendor */}
-          <Route path="/vendor"            element={<RequireAuth role="vendor"><VendorDashboard /></RequireAuth>} />
-          <Route path="/vendor/pending"    element={<RequireAuth role="vendor"><VendorHome /></RequireAuth>} />
-          <Route path="/vendor/dispatch"   element={<RequireAuth role="vendor"><VendorDispatch /></RequireAuth>} />
-          <Route path="/vendor/returns"    element={<RequireAuth role="vendor"><VendorReturns /></RequireAuth>} />
-          <Route path="/vendor/dashboard"  element={<RequireAuth role="vendor"><VendorDashboard /></RequireAuth>} />
-          <Route path="/vendor/products"   element={<RequireAuth role="vendor"><VendorProducts /></RequireAuth>} />
-          <Route path="/vendor/orders"     element={<RequireAuth role="vendor"><VendorOrders /></RequireAuth>} />
-          <Route path="/vendor/orders/:id"       element={<RequireAuth role="vendor"><VendorOrderDetail /></RequireAuth>} />
-          <Route path="/vendor/retailers"        element={<RequireAuth role="vendor"><VendorRetailers /></RequireAuth>} />
-          <Route path="/vendor/retailers/:id"    element={<RequireAuth role="vendor"><VendorRetailerDetail /></RequireAuth>} />
+          {/* Retailer — sidebar layout */}
+          <Route element={<RequireAuth role="retailer"><RetailerLayout /></RequireAuth>}>
+            <Route path="/retailer"           element={<RetailerLanding />} />
+            <Route path="/"                   element={<RetailerLanding />} />
+            <Route path="/order/vehicle-type" element={<VehicleTypeStep />} />
+            <Route path="/order/brand"        element={<BrandStep />} />
+            <Route path="/order/model"        element={<ModelStep />} />
+            <Route path="/order/photo"        element={<PhotoOrderPage />} />
+            <Route path="/products"           element={<ProductList />} />
+            <Route path="/search"             element={<SearchResults />} />
+            <Route path="/cart"               element={<Cart />} />
+            <Route path="/orders"             element={<MyOrders />} />
+            <Route path="/profile"            element={<RetailerProfile />} />
+          </Route>
 
           {/* Admin */}
-          <Route path="/admin" element={<RequireAuth role="admin"><AdminPanel /></RequireAuth>} />
-
+          <Route path="/admin" element={<RequireAuth role="admin"><div className="min-h-screen bg-gray-50"><AdminPanel /></div></RequireAuth>} />
           <Route path="*" element={user ? <NotFound /> : <Navigate to="/login" replace />} />
+
+          {/* Vendor — left sidebar layout */}
+          <Route element={<RequireAuth role="vendor"><VendorLayout /></RequireAuth>}>
+            <Route path="/vendor"                element={<VendorDashboard />} />
+            <Route path="/vendor/dashboard"      element={<VendorDashboard />} />
+            <Route path="/vendor/pending"        element={<VendorHome />} />
+            <Route path="/vendor/dispatch"       element={<VendorDispatch />} />
+            <Route path="/vendor/returns"        element={<VendorReturns />} />
+            <Route path="/vendor/products"       element={<VendorProducts />} />
+            <Route path="/vendor/orders"         element={<VendorOrders />} />
+            <Route path="/vendor/orders/:id"     element={<VendorOrderDetail />} />
+            <Route path="/vendor/retailers"      element={<VendorRetailers />} />
+            <Route path="/vendor/retailers/:id"  element={<VendorRetailerDetail />} />
+          </Route>
         </Routes>
-      </div>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { getOrderById } from '../api/orders.api';
 import { acceptOrder, rejectOrder, dispatchOrder, deliverOrder } from '../api/vendor.api';
 import StatusBadge from '../components/StatusBadge';
@@ -19,7 +20,7 @@ function Timeline({ status }) {
             <div className="flex flex-col items-center shrink-0">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
                 ${done ? 'bg-green-500 text-white' : current ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
-                {done ? '✓' : i + 1}
+                {done ? <Check size={13} strokeWidth={3} /> : i + 1}
               </div>
               <p className={`text-xs mt-1 whitespace-nowrap
                 ${current ? 'text-blue-600 font-semibold' : done ? 'text-green-600' : 'text-gray-400'}`}>

@@ -88,6 +88,8 @@ const getAllProducts = async (req, res) => {
         p.model_variant,
         p.handle,
         p.created_at,
+        p.vendor_id,
+        u.name AS vendor_name,
         c.id AS category_id,
         c.name AS category_name,
         c.slug AS category_slug,
@@ -103,10 +105,11 @@ const getAllProducts = async (req, res) => {
           '[]'
         ) AS images
       FROM products p
+      LEFT JOIN users u ON u.id = p.vendor_id
       LEFT JOIN categories c ON c.id = p.category_id
       LEFT JOIN product_images pi ON pi.product_id = p.id
       ${whereClause}
-      GROUP BY p.id, c.id, c.name, c.slug
+      GROUP BY p.id, u.name, c.id, c.name, c.slug
       ORDER BY p.name ASC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `, params)
@@ -213,4 +216,33 @@ const updateProduct = async (req, res, next) => {
   }
 };
 
-module.exports = { getAllProducts, getProductById, createProduct, updateProduct };
+const getVendorsByProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Find all vendors who carry a product with the same SKU
+    const result = await query(
+      `SELECT p.id AS product_id, p.vendor_id, u.name AS vendor_name
+       FROM products p
+       JOIN users u ON u.id = p.vendor_id
+       WHERE p.sku = (SELECT sku FROM products WHERE id = $1)
+         AND p.sku IS NOT NULL AND p.sku != ''
+       ORDER BY u.name ASC`,
+      [id]
+    );
+    // Fallback: if no SKU match, return the single vendor for this product
+    if (result.rows.length === 0) {
+      const fallback = await query(
+        `SELECT p.id AS product_id, p.vendor_id, u.name AS vendor_name
+         FROM products p JOIN users u ON u.id = p.vendor_id
+         WHERE p.id = $1`,
+        [id]
+      );
+      return res.json(fallback.rows);
+    }
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+module.exports = { getAllProducts, getProductById, createProduct, updateProduct, getVendorsByProduct };

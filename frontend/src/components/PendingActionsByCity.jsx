@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import VendorOrderCard, { COLS } from './VendorOrderCard';
+import VendorOrderCard, { COLS_NO_CB } from './VendorOrderCard';
 
 function Meta({ items }) {
   const visible = items.filter(Boolean);
@@ -81,7 +81,7 @@ export default function PendingActionsByCity({ orders, lastDispatchByCity, onAcc
                   {/* {state && <span className="text-xs text-gray-400">{state}</span>} */}
                   <div className="mt-0.5">
                   <Meta items={[
-                    pendingCount  > 0 && { label: `${pendingCount} pending`,                          color: 'text-amber-600' },
+                    pendingCount  > 0 && { label: `${pendingCount} pending`,                          color: 'text-indigo-600' },
                     acceptedCount > 0 && { label: `${acceptedCount} accepted`,                        color: 'text-sky-600'  },
                     { label: `${orderCount} order${orderCount !== 1 ? 's' : ''}`,                     color: 'text-gray-400'  },
                     { label: `${retailerList.length} retailer${retailerList.length !== 1 ? 's' : ''}`, color: 'text-gray-400' },
@@ -129,7 +129,7 @@ export default function PendingActionsByCity({ orders, lastDispatchByCity, onAcc
                           <div className="min-w-0">
                             <span className="text-sm font-medium text-gray-800 truncate block">{r.name}</span>
                             <Meta items={[
-                              rPending  > 0 && { label: `${rPending} pending`,                              color: 'text-amber-600' },
+                              rPending  > 0 && { label: `${rPending} pending`,                              color: 'text-indigo-600' },
                               rAccepted > 0 && { label: `${rAccepted} accepted`,                            color: 'text-sky-600'  },
                               { label: `${r.orders.length} order${r.orders.length !== 1 ? 's' : ''}`,       color: 'text-gray-400'  },
                             ]} />
@@ -143,13 +143,12 @@ export default function PendingActionsByCity({ orders, lastDispatchByCity, onAcc
 
                       {isROpen && (
                         <>
-                          <div className="hidden md:grid px-4 py-2 gap-x-3 text-xs font-medium text-gray-500"
-                            style={{ gridTemplateColumns: COLS }}>
-                            <div /><span>Order</span><span>Phone</span><span>Retailer</span>
-                            <span>Date</span><span>Units</span><span>Location</span>
-                            <span>Status</span><span>Action</span><span />
+                          <div className="hidden md:grid px-4 py-2 gap-x-3 text-xs font-medium text-gray-500 border-l-4 border-l-transparent"
+                            style={{ gridTemplateColumns: COLS_NO_CB }}>
+                            <span>Retailer</span><span>Phone</span><span>Date</span>
+                            <span>Units</span><span>Location</span><span>Status</span><span>Action</span><span />
                           </div>
-                          <div className="px-3 py-2 space-y-1.5">
+                          <div className="py-2 space-y-1.5">
                             {r.orders.map((o) => (
                               <VendorOrderCard key={o.id} order={o} onAccept={onAccept} onReject={onReject} defaultExpanded={false} />
                             ))}
