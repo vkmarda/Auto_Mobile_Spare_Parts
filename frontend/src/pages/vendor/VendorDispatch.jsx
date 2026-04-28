@@ -78,35 +78,37 @@ function DispatchTile({ dispatch, isSelected, onClick }) {
     : null;
   const isStale = daysSince !== null && daysSince >= 5;
 
-  const bgCls = isStale
-    ? 'bg-orange-50 hover:bg-orange-100'
-    : dispatch.status === 'completed'
-      ? 'bg-teal-50 hover:bg-teal-100'
-      : dispatch.status === 'dispatched'
-        ? 'bg-violet-50 hover:bg-violet-100'
-        : 'bg-gray-50 hover:bg-gray-100';
+  const bgCls = isSelected
+    ? 'bg-slate-800'
+    : isStale
+      ? 'bg-orange-50 hover:bg-orange-100'
+      : dispatch.status === 'completed'
+        ? 'bg-teal-50 hover:bg-teal-100'
+        : dispatch.status === 'dispatched'
+          ? 'bg-violet-50 hover:bg-violet-100'
+          : 'bg-gray-50 hover:bg-gray-100';
 
-  const ringCls = isSelected ? 'ring-2 ring-blue-500 shadow-md' : 'shadow-sm';
+  const ringCls = isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-sm hover:shadow';
 
   return (
     <button onClick={onClick}
-      className={`${bgCls} ${ringCls} rounded-xl border border-transparent p-4 text-left transition-all w-full md:w-[210px] md:flex-none`}>
+      className={`${bgCls} ${ringCls} rounded-xl border border-transparent p-4 text-left transition-all w-full md:w-[210px] md:flex-none relative`}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span className="font-mono font-bold text-sm text-gray-800">{dispatch.dispatch_number}</span>
-        <StatusBadge status={dispatch.status} />
+        <span className={`font-mono font-bold text-sm ${isSelected ? 'text-white' : 'text-gray-800'}`}>{dispatch.dispatch_number}</span>
+        <StatusBadge status={dispatch.status} small={isSelected} />
       </div>
-      <p className="font-semibold text-gray-900 text-sm truncate mb-1">
+      <p className={`font-semibold text-sm truncate mb-1 ${isSelected ? 'text-slate-100' : 'text-gray-900'}`}>
         {dispatch.city}{dispatch.state ? `, ${dispatch.state}` : ''}
       </p>
       <div className="flex flex-wrap gap-x-2 gap-y-0.5 mb-2.5">
-        <span className="text-xs text-gray-500">{dispatch.order_count} order{dispatch.order_count !== 1 ? 's' : ''}</span>
+        <span className={`text-xs ${isSelected ? 'text-slate-400' : 'text-gray-500'}`}>{dispatch.order_count} order{dispatch.order_count !== 1 ? 's' : ''}</span>
         {dispatch.return_delivery?.return_count > 0 && (
-          <span className="text-xs text-indigo-500">↩ {dispatch.return_delivery.return_count} return{dispatch.return_delivery.return_count !== 1 ? 's' : ''}</span>
+          <span className={`text-xs ${isSelected ? 'text-indigo-300' : 'text-indigo-500'}`}>↩ {dispatch.return_delivery.return_count} return{dispatch.return_delivery.return_count !== 1 ? 's' : ''}</span>
         )}
       </div>
-      <p className="text-xs text-gray-400">{fmtDate(dispatch.created_at)}</p>
+      <p className={`text-xs ${isSelected ? 'text-slate-500' : 'text-gray-400'}`}>{fmtDate(dispatch.created_at)}</p>
       {isStale && (
-        <p className="text-xs text-orange-600 font-medium mt-2 flex items-center gap-1">
+        <p className={`text-xs font-medium mt-2 flex items-center gap-1 ${isSelected ? 'text-orange-300' : 'text-orange-600'}`}>
           <AlertTriangle size={11} className="flex-shrink-0" />{daysSince}d — awaiting confirmation
         </p>
       )}
@@ -623,8 +625,8 @@ export default function VendorDispatch() {
             <p className="text-xs text-gray-400 mt-1">Dispatched orders will appear here</p>
           </div>
         ) : (
-          <div className="flex gap-5 items-start">
-            {/* Tiles */}
+          <div className="flex gap-6 items-start">
+            {/* Tiles column — width is stable whether panel is open or not */}
             <div className="flex-1 min-w-0 space-y-6">
               {['Today', 'Yesterday', 'Earlier'].map((group) => {
                 const groupItems = filteredDispatches.filter((d) => fmtDateKey(d.created_at) === group);
@@ -666,16 +668,22 @@ export default function VendorDispatch() {
               })}
             </div>
 
-            {/* Desktop: sticky side panel */}
-            {selectedDispatch && (
-              <div className="hidden md:block w-80 flex-shrink-0 sticky top-6 pb-8">
+            {/* Desktop: panel slot — always reserves space so tiles never reflow */}
+            <div className="hidden md:block w-96 flex-shrink-0 sticky top-6 pb-8">
+              {selectedDispatch ? (
                 <DispatchDetailPanel
                   key={selectedDispatch.id}
                   dispatch={selectedDispatch}
                   onClose={() => setSelectedDispatch(null)}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center py-16 text-center">
+                  <Package size={28} className="text-gray-300 mb-3" />
+                  <p className="text-sm font-medium text-gray-400">Select a dispatch</p>
+                  <p className="text-xs text-gray-300 mt-1">to view orders and details</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>

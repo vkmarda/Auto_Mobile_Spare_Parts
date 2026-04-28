@@ -282,27 +282,23 @@ const confirmOrder = async (req, res, next) => {
     );
 
     // Auto-advance dispatch to completed if all its orders are now confirmed
-    const dispatchRes = await query(
-      `SELECT d.id FROM dispatches d JOIN dispatch_orders do2 ON do2.dispatch_id = d.id WHERE do2.order_id = $1 AND d.status = 'dispatched'`,
-      [id]
-    );
-    if (dispatchRes.rows.length > 0) {
-      const dispatchId = dispatchRes.rows[0].id;
-      const pendingRes = await query(
-        `SELECT COUNT(*) FROM dispatch_orders do2 JOIN orders o ON o.id = do2.order_id WHERE do2.dispatch_id = $1 AND o.status != 'confirmed'`,
-        [dispatchId]
+    try {
+      const dispatchRes = await query(
+        `SELECT d.id FROM dispatches d JOIN dispatch_orders do2 ON do2.dispatch_id = d.id WHERE do2.order_id = $1 AND d.status = 'dispatched'`,
+        [id]
       );
-      if (parseInt(pendingRes.rows[0].count) === 0) {
-        await query(`UPDATE dispatches SET status = 'completed', updated_at = now() WHERE id = $1`, [dispatchId]);
-        await query(`
-          UPDATE return_requests SET status = 'return_received', received_at = now(), updated_at = now()
-          WHERE id IN (
-            SELECT rdr.return_request_id FROM return_deliveries rd
-            JOIN return_delivery_requests rdr ON rdr.return_delivery_id = rd.id
-            WHERE rd.dispatch_id = $1
-          ) AND status = 'return_dispatched'
-        `, [dispatchId]);
+      if (dispatchRes.rows.length > 0) {
+        const dispatchId = dispatchRes.rows[0].id;
+        const pendingRes = await query(
+          `SELECT COUNT(*) FROM dispatch_orders do2 JOIN orders o ON o.id = do2.order_id WHERE do2.dispatch_id = $1 AND o.status != 'confirmed'`,
+          [dispatchId]
+        );
+        if (parseInt(pendingRes.rows[0].count) === 0) {
+          await query(`UPDATE dispatches SET status = 'completed', updated_at = now() WHERE id = $1`, [dispatchId]);
+        }
       }
+    } catch (autoErr) {
+      console.error('Auto-advance dispatch error (non-fatal):', autoErr);
     }
 
     res.json({ id, status: 'confirmed' });
@@ -329,7 +325,7 @@ const cancelOrder = async (req, res, next) => {
     const retailer_id = req.user.id;
     const result = await query(`SELECT * FROM orders WHERE id = $1 AND retailer_id = $2`, [id, retailer_id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
-    if (result.rows[0].status !== 'pending') return res.status(400).json({ error: 'Only pending orders can be cancelled' });
+    if (!['pending', 'partially_accepted'].includes(result.rows[0].status)) return res.status(400).json({ error: 'Only pending or partially accepted orders can be cancelled' });
     await query(`UPDATE orders SET status = 'cancelled', updated_at = now() WHERE id = $1`, [id]);
     res.json({ id, status: 'cancelled' });
   } catch (err) { next(err); }

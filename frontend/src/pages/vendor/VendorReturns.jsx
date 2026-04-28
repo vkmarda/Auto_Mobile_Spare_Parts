@@ -16,17 +16,21 @@ const TILE_BG = {
 };
 
 function ReturnTile({ ret, isSelected, onClick }) {
+  const bgCls = isSelected
+    ? 'bg-slate-800'
+    : TILE_BG[ret.status] || 'bg-gray-50 hover:bg-gray-100';
+
   return (
     <button onClick={onClick}
-      className={`${TILE_BG[ret.status] || 'bg-gray-50 hover:bg-gray-100'} ${isSelected ? 'ring-2 ring-blue-500 shadow-md' : 'shadow-sm'} rounded-xl border border-transparent p-4 text-left transition-all w-full md:w-[210px] md:flex-none`}>
+      className={`${bgCls} ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-sm hover:shadow'} rounded-xl border border-transparent p-4 text-left transition-all w-full md:w-[210px] md:flex-none`}>
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <span className="font-mono font-bold text-sm text-gray-800">{ret.return_number}</span>
+        <span className={`font-mono font-bold text-sm ${isSelected ? 'text-white' : 'text-gray-800'}`}>{ret.return_number}</span>
         <StatusBadge status={ret.status} small />
       </div>
-      <p className="text-sm font-semibold text-gray-900 truncate mb-0.5">{ret.retailer_name}</p>
-      {ret.city && <p className="text-xs text-gray-500 truncate">{[ret.city, ret.state].filter(Boolean).join(', ')}</p>}
-      {ret.reason && <p className="text-xs text-gray-400 italic truncate mt-0.5">"{ret.reason}"</p>}
-      <p className="text-xs text-gray-400 mt-2">{fmtDate(ret.created_at)}</p>
+      <p className={`text-sm font-semibold truncate mb-0.5 ${isSelected ? 'text-slate-100' : 'text-gray-900'}`}>{ret.retailer_name}</p>
+      {ret.city && <p className={`text-xs truncate ${isSelected ? 'text-slate-400' : 'text-gray-500'}`}>{[ret.city, ret.state].filter(Boolean).join(', ')}</p>}
+      {ret.reason && <p className={`text-xs italic truncate mt-0.5 ${isSelected ? 'text-slate-500' : 'text-gray-400'}`}>"{ret.reason}"</p>}
+      <p className={`text-xs mt-2 ${isSelected ? 'text-slate-500' : 'text-gray-400'}`}>{fmtDate(ret.created_at)}</p>
     </button>
   );
 }
@@ -211,7 +215,7 @@ function TileSection({ title, accent, items, selectedReturn, onSelect, onAccept,
           <p className="text-sm font-semibold text-gray-700">{emptyText}</p>
         </div>
       ) : (
-        <div className="flex gap-5 items-start">
+        <div className="flex gap-6 items-start">
           <div className="flex-1 min-w-0">
             {/* Mobile: vertical stack, panel opens below selected tile */}
             <div className="md:hidden space-y-2">
@@ -244,17 +248,23 @@ function TileSection({ title, accent, items, selectedReturn, onSelect, onAccept,
             </div>
           </div>
 
-          {/* Desktop: sticky side panel — only render for the section that owns the selected tile */}
-          {selectedReturn && items.some((r) => r.id === selectedReturn.id) && (
-            <div className="hidden md:block w-80 flex-shrink-0 sticky top-6 pb-8">
+          {/* Desktop: panel slot — always reserves space so tiles never reflow */}
+          <div className="hidden md:block w-96 flex-shrink-0 sticky top-6 pb-8">
+            {selectedReturn && items.some((r) => r.id === selectedReturn.id) ? (
               <ReturnDetailPanel key={selectedReturn.id} ret={selectedReturn}
                 onClose={() => onSelect(null)}
                 onAccept={() => onAccept(selectedReturn)}
                 onReceive={() => onReceive(selectedReturn)}
                 onSettle={() => onSettle(selectedReturn)}
                 actionLoading={actionLoading === selectedReturn.id} />
-            </div>
-          )}
+            ) : (
+              <div className="rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center py-16 text-center">
+                <RotateCcw size={28} className="text-gray-300 mb-3" />
+                <p className="text-sm font-medium text-gray-400">Select a return</p>
+                <p className="text-xs text-gray-300 mt-1">to view details and take action</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>

@@ -360,7 +360,13 @@ function OrderCard({ order, onRefresh, returnData }) {
 
   const handleConfirm = async () => {
     setConfirming(true);
-    try { await confirmOrder(order.id); showToast('Delivery confirmed!'); onRefresh(); } finally { setConfirming(false); }
+    try {
+      await confirmOrder(order.id);
+      showToast('Delivery confirmed!');
+      onRefresh();
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Could not confirm delivery');
+    } finally { setConfirming(false); }
   };
 
   const handleConfirmPartial = async () => {

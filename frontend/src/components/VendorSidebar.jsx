@@ -191,7 +191,7 @@ export default function VendorSidebar({ expanded, onToggle, mobileOpen, onMobile
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`hidden md:flex flex-col fixed left-0 top-0 h-screen bg-slate-900 border-r border-slate-700 z-40 transition-all duration-200 ease-in-out overflow-hidden ${
+        className={`hidden md:flex flex-col fixed left-0 top-0 h-dvh bg-slate-900 border-r border-slate-700 z-40 transition-all duration-200 ease-in-out overflow-hidden ${
           expanded ? 'w-60' : 'w-16'
         }`}
       >
@@ -208,7 +208,7 @@ export default function VendorSidebar({ expanded, onToggle, mobileOpen, onMobile
 
       {/* Mobile: drawer */}
       <aside
-        className={`md:hidden fixed left-0 top-0 h-screen w-64 bg-slate-900 border-r border-slate-700 z-50 transition-transform duration-200 ease-in-out ${
+        className={`md:hidden fixed left-0 top-0 h-dvh w-64 bg-slate-900 border-r border-slate-700 z-50 transition-transform duration-200 ease-in-out flex flex-col ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

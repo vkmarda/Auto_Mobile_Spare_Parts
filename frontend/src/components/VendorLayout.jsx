@@ -30,7 +30,7 @@ export default function VendorLayout() {
         if (cancelled) return;
         if (prevCount.current === null) {
           // First load — login-time notification
-          if (count > 0) showToast(`You have ${count} pending order${count !== 1 ? 's' : ''}`, 'info', ACTION, 0);
+          if (count > 0) showToast(`You have ${count} pending order${count !== 1 ? 's' : ''}`, 'info', ACTION, 8000);
         } else if (count > prevCount.current) {
           // New order(s) arrived while online
           showToast('New order received', 'info', ACTION);
