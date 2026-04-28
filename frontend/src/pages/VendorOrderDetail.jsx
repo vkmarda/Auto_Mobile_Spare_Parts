@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { getOrderById } from '../api/orders.api';
-import { acceptOrder, rejectOrder, dispatchOrder, deliverOrder } from '../api/vendor.api';
+import { acceptOrder, rejectOrder, dispatchOrder } from '../api/vendor.api';
 import StatusBadge from '../components/StatusBadge';
 
-const STEPS = ['pending', 'accepted', 'dispatched', 'delivered'];
+const STEPS = ['pending', 'accepted', 'dispatched', 'confirmed'];
 
 function Timeline({ status }) {
   const stepIdx  = STEPS.indexOf(status);
@@ -122,13 +122,7 @@ export default function VendorOrderDetail() {
             Mark as Dispatched
           </button>
         )}
-        {status === 'dispatched' && (
-          <button disabled={acting} onClick={() => act(deliverOrder)}
-            className="flex-1 bg-purple-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-purple-700 disabled:opacity-40">
-            Mark as Delivered
-          </button>
-        )}
-        {(status === 'delivered' || status === 'rejected') && (
+        {(status === 'confirmed' || status === 'rejected') && (
           <p className="text-sm text-gray-400 py-3">
             Order is {status}. No further actions available.
           </p>

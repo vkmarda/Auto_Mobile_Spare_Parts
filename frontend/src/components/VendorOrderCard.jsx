@@ -131,7 +131,7 @@ function ConfirmActionModal({ type, order, details, rejectReason, setRejectReaso
   );
 }
 
-export default function VendorOrderCard({ order, onAccept, onReject, onPartialAccept, checkable, checked, onCheck, defaultExpanded, showCheckCol }) {
+export default function VendorOrderCard({ order, onAccept, onReject, onPartialAccept, checkable, checked, onCheck, defaultExpanded, showCheckCol, onDispatch, readOnly, compact }) {
   const navigate                  = useNavigate();
   const showToast                 = useToast();
   const [details, setDetails]     = useState(null);
@@ -177,7 +177,9 @@ export default function VendorOrderCard({ order, onAccept, onReject, onPartialAc
   const location = [order.retailer_city, order.retailer_state].filter(Boolean).join(', ');
   const totalQty = details?.items?.reduce((s, i) => s + i.quantity, 0) ?? order.item_count;
 
-  const ActionCell = () => (
+  const ActionCell = () => {
+    if (readOnly) return null;
+    return (
     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
       {isPending && onAccept && (
         <>
@@ -192,13 +194,14 @@ export default function VendorOrderCard({ order, onAccept, onReject, onPartialAc
         </>
       )}
       {(order.status === 'accepted' || order.status === 'partial_confirmed') && (
-        <button onClick={() => navigate('/vendor/dispatch')}
+        <button onClick={() => onDispatch ? onDispatch(order.id) : navigate('/vendor/dispatch')}
           className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg font-medium whitespace-nowrap">
-          Dispatch →
+          {onDispatch ? 'Dispatch' : 'Dispatch →'}
         </button>
       )}
     </div>
-  );
+    );
+  };
 
   const ToggleBtn = () => (
     <button onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
@@ -208,10 +211,10 @@ export default function VendorOrderCard({ order, onAccept, onReject, onPartialAc
   );
 
   return (
-    <div className={`bg-white border border-gray-200 border-l-4 rounded-xl shadow-sm overflow-hidden ${BORDER[order.status] || 'border-l-gray-300'}`}>
+    <div className={`bg-white border rounded-xl shadow-sm overflow-hidden ${compact ? 'border-gray-100' : `border-gray-200 border-l-4 ${BORDER[order.status] || 'border-l-gray-300'}`}`}>
 
       {/* ── Mobile ── */}
-      <div className="md:hidden px-4 py-3 cursor-pointer" onClick={() => setExpanded(v => !v)}>
+      <div className={`md:hidden cursor-pointer ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} onClick={() => setExpanded(v => !v)}>
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -250,7 +253,7 @@ export default function VendorOrderCard({ order, onAccept, onReject, onPartialAc
       </div>
 
       {/* ── Desktop grid row ── */}
-      <div className="hidden md:grid px-4 py-3 items-center gap-x-3 cursor-pointer"
+      <div className={`hidden md:grid items-center gap-x-3 cursor-pointer ${compact ? 'px-3 py-2' : 'px-4 py-3'}`}
         onClick={() => setExpanded(v => !v)}
         style={{ gridTemplateColumns: useCheckCol ? COLS : COLS_NO_CB }}>
         {/* cb — reserve column when list uses checkboxes, even if this card isn't checkable */}

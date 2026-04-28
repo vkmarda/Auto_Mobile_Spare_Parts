@@ -17,7 +17,6 @@ const BORDER = {
   partially_accepted:   'border-l-orange-400',
   partial_confirmed:    'border-l-sky-400',
   dispatched:           'border-l-violet-400',
-  delivered:            'border-l-teal-400',
   confirmed:            'border-l-green-500',
   rejected:             'border-l-red-400',
   cancelled:            'border-l-gray-300',
@@ -35,7 +34,6 @@ const BADGE_CLS = {
   partially_accepted:   'bg-orange-100 text-orange-800',
   partial_confirmed:    'bg-sky-100 text-sky-800',
   dispatched:           'bg-violet-100 text-violet-800',
-  delivered:            'bg-teal-100 text-teal-800',
   confirmed:            'bg-green-100 text-green-800',
   rejected:             'bg-red-100 text-red-700',
   cancelled:            'bg-gray-100 text-gray-500',
@@ -52,8 +50,7 @@ const BADGE_LABELS = {
   accepted:             'Accepted — Vendor confirmed, preparing for dispatch',
   partially_accepted:   'Partially Accepted — Review quantities and confirm',
   partial_confirmed:    'Partial Confirmed — Waiting for vendor to dispatch',
-  dispatched:           'Dispatched — On its way to you',
-  delivered:            'Delivered — Confirm when received',
+  dispatched:           'Dispatched — Confirm when received',
   confirmed:            'Confirmed — Order complete',
   rejected:             'Rejected — Vendor declined',
   cancelled:            'Cancelled',
@@ -71,7 +68,6 @@ const BADGE_SHORT = {
   partially_accepted:   'Partially Accepted',
   partial_confirmed:    'Partial Confirmed',
   dispatched:           'Dispatched',
-  delivered:            'Delivered',
   confirmed:            'Confirmed',
   rejected:             'Rejected',
   cancelled:            'Cancelled',
@@ -89,7 +85,6 @@ const TABS = [
   { key: 'partial',    label: 'Partial' },
   { key: 'accepted',   label: 'Accepted' },
   { key: 'dispatched', label: 'Dispatched' },
-  { key: 'delivered',  label: 'Delivered' },
   { key: 'confirmed',  label: 'Confirmed' },
   { key: 'rejected',   label: 'Rejected' },
   { key: 'returns',    label: 'Returns' },
@@ -101,7 +96,6 @@ const EMPTY = {
   pending:    { icon: Clock,        msg: 'No pending orders right now.',   sub: null, link: false },
   accepted:   { icon: CheckCircle,  msg: 'No accepted orders yet.',         sub: null, link: false },
   dispatched: { icon: Truck,        msg: 'No dispatched orders.',           sub: null, link: false },
-  delivered:  { icon: Inbox,        msg: 'No delivered orders yet.',        sub: null, link: false },
   confirmed:  { icon: Check,        msg: 'No confirmed orders.',            sub: null, link: false },
   rejected:   { icon: XCircle,      msg: 'No rejected orders.',             sub: null, link: false },
   returns:    { icon: RotateCcw,    msg: 'No return requests.',             sub: null, link: false },
@@ -114,8 +108,7 @@ const RETURN_STATES = ['return_requested', 'return_accepted', 'return_dispatched
 const STATUS_LEGEND = [
   { status: 'pending',    label: 'Pending',    desc: 'Sent to vendor, waiting for confirmation' },
   { status: 'accepted',   label: 'Accepted',   desc: 'Vendor confirmed, will be dispatched soon' },
-  { status: 'dispatched', label: 'Dispatched', desc: 'On its way to you' },
-  { status: 'delivered',  label: 'Delivered',  desc: 'Please confirm you received the parts' },
+  { status: 'dispatched', label: 'Dispatched', desc: 'On its way — tap Confirm Delivery when you receive it' },
   { status: 'confirmed',  label: 'Confirmed',  desc: 'Order complete — you can request a return if needed' },
   { status: 'rejected',   label: 'Rejected',   desc: 'Vendor could not fulfill this order' },
 ];
@@ -135,10 +128,11 @@ function Badge({ status }) {
 function StatusTimeline({ status }) {
   const isRejected = status === 'rejected';
   const isReturn   = RETURN_STATES.includes(status);
-  const STEPS      = ['pending', 'accepted', 'dispatched', 'delivered', 'confirmed'];
-  const LABELS     = ['Placed', isRejected ? 'Rejected' : 'Accepted', 'Dispatched', 'Delivered', 'Confirmed'];
+  const STEPS      = ['pending', 'accepted', 'dispatched', 'confirmed'];
+  const LABELS     = ['Placed', isRejected ? 'Rejected' : 'Accepted', 'Dispatched', 'Confirmed'];
 
-  const stepIdx = isReturn ? 4 : Math.max(0, STEPS.indexOf(status));
+  const normalised = (status === 'partially_accepted' || status === 'partial_confirmed') ? 'accepted' : status;
+  const stepIdx = isReturn ? 4 : Math.max(0, STEPS.indexOf(normalised));
 
   const dotCls = (idx) => {
     if (isRejected && idx === 1) return 'bg-red-500 border-red-500';
@@ -425,13 +419,13 @@ function OrderCard({ order, onRefresh, returnData }) {
         </div>
       )}
       <div className={`rounded-xl shadow-sm border border-l-4 overflow-hidden ${
-        order.status === 'delivered' ? 'bg-teal-50 border-teal-200 border-l-teal-400' :
+        order.status === 'dispatched' ? 'bg-teal-50 border-teal-200 border-l-teal-400' :
         `bg-white border-gray-200 ${BORDER[order.status] || 'border-l-gray-300'}`
       }`}>
 
-        {order.status === 'delivered' && (
+        {order.status === 'dispatched' && (
           <div className="bg-teal-100 border-b border-teal-200 px-4 py-2 text-xs text-teal-800 font-medium flex items-center gap-1.5">
-            <Package size={13} className="flex-shrink-0" />Parts arrived? Tap <span className="font-bold">Confirm Receipt</span> to close this order.
+            <Package size={13} className="flex-shrink-0" />Parts arrived? Tap <span className="font-bold">Confirm Delivery</span> to close this order.
           </div>
         )}
         {order.status === 'partially_accepted' && (
@@ -620,11 +614,11 @@ function OrderCard({ order, onRefresh, returnData }) {
               )}
 
               <div className="flex flex-wrap gap-2 pt-1">
-                {order.status === 'delivered' && (
+                {order.status === 'dispatched' && (
                   <button onClick={handleConfirm} disabled={confirming}
                     className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
                     {confirming && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    {confirming ? 'Confirming…' : <><Check size={14} strokeWidth={3} />Confirm Receipt</>}
+                    {confirming ? 'Confirming…' : <><Check size={14} strokeWidth={3} />Confirm Delivery</>}
                   </button>
                 )}
                 {order.status === 'partially_accepted' && (
@@ -722,7 +716,6 @@ export default function MyOrders() {
     partial:    orders.filter((o) => o.status === 'partially_accepted' || o.status === 'partial_confirmed').length,
     accepted:   orders.filter((o) => o.status === 'accepted').length,
     dispatched: orders.filter((o) => o.status === 'dispatched').length,
-    delivered:  orders.filter((o) => o.status === 'delivered').length,
     confirmed:  orders.filter((o) => o.status === 'confirmed').length,
     rejected:   orders.filter((o) => o.status === 'rejected').length,
     returns:    orders.filter((o) => o.status.startsWith('return_')).length,
@@ -761,9 +754,9 @@ export default function MyOrders() {
         <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
           Pending: <span className="font-bold text-yellow-600">{counts.pending}</span>
         </div>
-        {counts.delivered > 0 && (
+        {counts.dispatched > 0 && (
           <div className="bg-white border border-gray-200 rounded-full px-4 py-1.5 text-sm font-medium shadow-sm text-gray-700">
-            To confirm: <span className="font-bold text-orange-600">{counts.delivered}</span>
+            To confirm: <span className="font-bold text-orange-600">{counts.dispatched}</span>
           </div>
         )}
       </div>

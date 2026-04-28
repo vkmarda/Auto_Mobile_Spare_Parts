@@ -6,6 +6,9 @@ export const getReturns = () =>
 export const acceptReturn = (id) =>
   client.post(`/returns/${id}/accept`).then((r) => r.data);
 
+export const receiveReturn = (id) =>
+  client.post(`/returns/${id}/receive`).then((r) => r.data);
+
 export const settleReturn = (id) =>
   client.post(`/returns/${id}/settle`).then((r) => r.data);
 

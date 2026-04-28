@@ -262,29 +262,6 @@ const rejectOrder = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-const markDelivered = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { id: userId, role } = req.user;
-
-    const ownerField = role === 'vendor' ? 'o.vendor_id' : 'o.retailer_id';
-    const orderResult = await query(
-      `SELECT o.*, u.mobile AS retailer_mobile
-       FROM orders o JOIN users u ON u.id = o.retailer_id
-       WHERE o.id = $1 AND ${ownerField} = $2`,
-      [id, userId]
-    );
-    if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
-    const order = orderResult.rows[0];
-    if (order.status !== 'dispatched') return res.status(400).json({ error: 'Only dispatched orders can be marked delivered' });
-
-    await query(`UPDATE orders SET status = 'delivered', delivered_at = now(), updated_at = now() WHERE id = $1`, [id]);
-    notify({ mobile: order.retailer_mobile, event: 'order_delivered', data: { order_number: order.order_number } })
-      .catch((e) => console.error('Notify error:', e));
-    res.json({ id, status: 'delivered' });
-  } catch (err) { next(err); }
-};
-
 const confirmOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -295,9 +272,39 @@ const confirmOrder = async (req, res, next) => {
       [id, retailer_id]
     );
     if (orderResult.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
-    if (orderResult.rows[0].status !== 'delivered') return res.status(400).json({ error: 'Only delivered orders can be confirmed' });
+    if (orderResult.rows[0].status !== 'dispatched') {
+      return res.status(400).json({ error: 'Only dispatched orders can be confirmed' });
+    }
 
-    await query(`UPDATE orders SET status = 'confirmed', confirmed_at = now(), updated_at = now() WHERE id = $1`, [id]);
+    await query(
+      `UPDATE orders SET status = 'confirmed', delivered_at = now(), confirmed_at = now(), updated_at = now() WHERE id = $1`,
+      [id]
+    );
+
+    // Auto-advance dispatch to completed if all its orders are now confirmed
+    const dispatchRes = await query(
+      `SELECT d.id FROM dispatches d JOIN dispatch_orders do2 ON do2.dispatch_id = d.id WHERE do2.order_id = $1 AND d.status = 'dispatched'`,
+      [id]
+    );
+    if (dispatchRes.rows.length > 0) {
+      const dispatchId = dispatchRes.rows[0].id;
+      const pendingRes = await query(
+        `SELECT COUNT(*) FROM dispatch_orders do2 JOIN orders o ON o.id = do2.order_id WHERE do2.dispatch_id = $1 AND o.status != 'confirmed'`,
+        [dispatchId]
+      );
+      if (parseInt(pendingRes.rows[0].count) === 0) {
+        await query(`UPDATE dispatches SET status = 'completed', updated_at = now() WHERE id = $1`, [dispatchId]);
+        await query(`
+          UPDATE return_requests SET status = 'return_received', received_at = now(), updated_at = now()
+          WHERE id IN (
+            SELECT rdr.return_request_id FROM return_deliveries rd
+            JOIN return_delivery_requests rdr ON rdr.return_delivery_id = rd.id
+            WHERE rd.dispatch_id = $1
+          ) AND status = 'return_dispatched'
+        `, [dispatchId]);
+      }
+    }
+
     res.json({ id, status: 'confirmed' });
   } catch (err) { next(err); }
 };
@@ -313,20 +320,6 @@ const dispatchOrder = async (req, res, next) => {
     notify({ mobile: order.retailer_mobile, event: 'order_dispatched', data: { order_number: order.order_number, vendor_name: req.user.name } })
       .catch((e) => console.error('Notify error:', e));
     res.json({ id, status: 'dispatched' });
-  } catch (err) { next(err); }
-};
-
-const deliverOrder = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { order, error, status } = await checkOrderAccess(id, req.user.id);
-    if (error) return res.status(status).json({ error });
-    if (order.status !== 'dispatched') return res.status(400).json({ error: 'Only dispatched orders can be marked delivered' });
-
-    await query(`UPDATE orders SET status = 'delivered', updated_at = now() WHERE id = $1`, [id]);
-    notify({ mobile: order.retailer_mobile, event: 'order_delivered', data: { order_number: order.order_number, vendor_name: req.user.name } })
-      .catch((e) => console.error('Notify error:', e));
-    res.json({ id, status: 'delivered' });
   } catch (err) { next(err); }
 };
 
@@ -396,4 +389,4 @@ const confirmPartialOrder = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, deliverOrder, markDelivered, confirmOrder, cancelOrder, partialAcceptOrder, confirmPartialOrder };
+module.exports = { placeOrder, placePhotoOrder, getOrders, getOrderById, acceptOrder, rejectOrder, dispatchOrder, confirmOrder, cancelOrder, partialAcceptOrder, confirmPartialOrder };

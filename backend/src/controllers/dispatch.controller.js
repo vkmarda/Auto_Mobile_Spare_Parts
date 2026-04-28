@@ -3,16 +3,21 @@ const { query } = require('../config/db');
 const createDispatch = async (req, res, next) => {
   try {
     const vendor_id = req.user.id;
-    const { city: filterCity, state: filterState } = req.body || {};
+    const { city: filterCity, state: filterState, order_ids: filterOrderIds } = req.body || {};
+
+    const params = [vendor_id];
+    let whereExtra = '';
+    if (filterCity) { whereExtra += ` AND u.city = $${params.length + 1}`; params.push(filterCity); }
+    if (filterOrderIds?.length) { whereExtra += ` AND o.id = ANY($${params.length + 1}::uuid[])`; params.push(filterOrderIds); }
 
     const ordersResult = await query(
       `SELECT o.id, o.order_number, u.city, u.state, u.name AS retailer_name
        FROM orders o
        JOIN users u ON u.id = o.retailer_id
        WHERE o.status IN ('accepted', 'partial_confirmed') AND o.vendor_id = $1
-       ${filterCity ? 'AND u.city = $2' : ''}
+       ${whereExtra}
        ORDER BY u.city`,
-      filterCity ? [vendor_id, filterCity] : [vendor_id]
+      params
     );
     if (ordersResult.rows.length === 0) {
       return res.status(400).json({ error: 'No accepted orders to dispatch' });
@@ -165,41 +170,6 @@ const getDispatches = async (req, res) => {
   }
 };
 
-const markDispatchDelivered = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const vendor_id = req.user.id;
-
-    const dispatchResult = await query(
-      `SELECT * FROM dispatches WHERE id = $1`,
-      [id]
-    );
-    if (dispatchResult.rows.length === 0) return res.status(404).json({ error: 'Dispatch not found' });
-    if (dispatchResult.rows[0].status === 'delivered') return res.status(400).json({ error: 'Already delivered' });
-
-    await query(`UPDATE dispatches SET status = 'delivered', updated_at = now() WHERE id = $1`, [id]);
-
-    const orderIdsResult = await query(`SELECT order_id FROM dispatch_orders WHERE dispatch_id = $1`, [id]);
-    const orderIds = orderIdsResult.rows.map((r) => r.order_id);
-    if (orderIds.length > 0) {
-      await query(`UPDATE orders SET status = 'delivered', delivered_at = now(), updated_at = now() WHERE id = ANY($1::uuid[])`, [orderIds]);
-    }
-
-    // Auto-advance return_dispatched → return_received for returns linked to this dispatch
-    await query(`
-      UPDATE return_requests SET status = 'return_received', received_at = now(), updated_at = now()
-      WHERE id IN (
-        SELECT rdr.return_request_id
-        FROM return_deliveries rd
-        JOIN return_delivery_requests rdr ON rdr.return_delivery_id = rd.id
-        WHERE rd.dispatch_id = $1
-      ) AND status = 'return_dispatched'
-    `, [id]);
-
-    res.json({ id, status: 'delivered' });
-  } catch (err) { next(err); }
-};
-
 const getDispatchSheet = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -279,4 +249,4 @@ const getDispatchSheet = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { createDispatch, getDispatches, markDispatchDelivered, getDispatchSheet };
+module.exports = { createDispatch, getDispatches, getDispatchSheet };

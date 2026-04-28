@@ -1,6 +1,6 @@
 // gray  = waiting / terminal-negative (pending, cancelled)
 // indigo = in-progress (accepted, dispatched, all return_* except settled)
-// green = terminal-positive (delivered, confirmed, return_settled)
+// green = terminal-positive (confirmed, completed, return_settled)
 // red   = rejected
 
 const STYLES = {
@@ -11,8 +11,8 @@ const STYLES = {
   rejected:             'bg-red-100 text-red-700',
   cancelled:            'bg-gray-100 text-gray-500',
   dispatched:           'bg-indigo-100 text-indigo-800',
-  delivered:            'bg-green-100 text-green-800',
   confirmed:            'bg-green-100 text-green-800',
+  completed:            'bg-green-100 text-green-800',
   return_requested:     'bg-indigo-100 text-indigo-800',
   return_accepted:      'bg-indigo-100 text-indigo-800',
   return_dispatched:    'bg-indigo-100 text-indigo-800',
@@ -29,8 +29,8 @@ const DOTS = {
   rejected:             'bg-red-500',
   cancelled:            'bg-gray-400',
   dispatched:           'bg-indigo-500',
-  delivered:            'bg-green-500',
   confirmed:            'bg-green-500',
+  completed:            'bg-green-500',
   return_requested:     'bg-indigo-500',
   return_accepted:      'bg-indigo-500',
   return_dispatched:    'bg-indigo-500',
@@ -47,8 +47,8 @@ const LABELS = {
   rejected:             'Rejected',
   cancelled:            'Cancelled',
   dispatched:           'Dispatched',
-  delivered:            'Delivered',
   confirmed:            'Confirmed',
+  completed:            'Completed',
   return_requested:     'Return Requested',
   return_accepted:      'Return Accepted',
   return_dispatched:    'Return in Transit',
@@ -57,11 +57,13 @@ const LABELS = {
   return_cancelled:     'Return Cancelled',
 };
 
-export default function StatusBadge({ status }) {
+export default function StatusBadge({ status, small }) {
   const label = LABELS[status] || status.charAt(0).toUpperCase() + status.slice(1);
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${STYLES[status] || 'bg-gray-100 text-gray-600'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${DOTS[status] || 'bg-gray-400'}`} />
+    <span className={`inline-flex items-center gap-1 rounded-full font-semibold flex-shrink-0 ${
+      small ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1 gap-1.5'
+    } ${STYLES[status] || 'bg-gray-100 text-gray-600'}`}>
+      <span className={`rounded-full flex-shrink-0 ${small ? 'w-1 h-1' : 'w-1.5 h-1.5'} ${DOTS[status] || 'bg-gray-400'}`} />
       {label}
     </span>
   );

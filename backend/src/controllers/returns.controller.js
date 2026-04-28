@@ -139,6 +139,32 @@ const acceptReturn = async (req, res) => {
   }
 };
 
+const receiveReturn = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const vendor_id = req.user.id;
+
+    const result = await query(
+      `SELECT rr.* FROM return_requests rr
+       JOIN orders o ON o.id = rr.order_id
+       WHERE rr.id = $1 AND o.vendor_id = $2`,
+      [id, vendor_id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Return request not found' });
+
+    const { status } = result.rows[0];
+    if (status !== 'return_accepted' && status !== 'return_dispatched') {
+      return res.status(400).json({ error: 'Only accepted or dispatched returns can be marked received' });
+    }
+
+    await query(
+      `UPDATE return_requests SET status = 'return_received', received_at = now(), updated_at = now() WHERE id = $1`,
+      [id]
+    );
+    res.json({ id, status: 'return_received' });
+  } catch (err) { next(err); }
+};
+
 const settleReturn = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -179,4 +205,4 @@ const cancelReturn = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { createReturn, getReturns, acceptReturn, settleReturn, cancelReturn };
+module.exports = { createReturn, getReturns, acceptReturn, receiveReturn, settleReturn, cancelReturn };

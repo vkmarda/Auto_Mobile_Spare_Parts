@@ -29,7 +29,6 @@ const STATUSES = [
   { key: 'pending',    label: 'Pending' },
   { key: 'accepted',   label: 'Accepted' },
   { key: 'dispatched', label: 'Dispatched' },
-  { key: 'delivered',  label: 'Delivered' },
   { key: 'confirmed',  label: 'Confirmed' },
   { key: 'returned',   label: 'Returned' },
 ];
@@ -176,7 +175,6 @@ export default function VendorOrders() {
     pending:    orders.filter((o) => o.status === 'pending').length,
     accepted:   orders.filter((o) => o.status === 'accepted').length,
     dispatched: orders.filter((o) => o.status === 'dispatched').length,
-    delivered:  orders.filter((o) => o.status === 'delivered').length,
     confirmed:  orders.filter((o) => o.status === 'confirmed').length,
     returned:   orders.filter((o) => RETURN_STATUSES.has(o.status)).length,
   }), [orders]);

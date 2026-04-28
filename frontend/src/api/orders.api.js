@@ -12,9 +12,6 @@ export const getOrderById = (id) =>
 export const confirmOrder = (id) =>
   client.post(`/orders/${id}/confirm`).then((r) => r.data);
 
-export const markDelivered = (id) =>
-  client.post(`/orders/${id}/delivered`).then((r) => r.data);
-
 export const placePhotoOrder = (data) =>
   client.post('/orders/photo', data).then((r) => r.data);
 

@@ -21,7 +21,6 @@ const STATUS_CARDS = [
   { key: 'accepted',        label: 'Accepted',    bg: 'bg-sky-50',     text: 'text-sky-800',    border: 'border-l-sky-400',    activeBg: 'bg-sky-100',    ring: 'ring-sky-300'    },
   { key: 'rejected',        label: 'Rejected',    bg: 'bg-red-50',     text: 'text-red-700',    border: 'border-l-red-400',    activeBg: 'bg-red-100',    ring: 'ring-red-300'    },
   { key: 'dispatched',      label: 'Dispatched',  bg: 'bg-violet-50',  text: 'text-violet-800', border: 'border-l-violet-400', activeBg: 'bg-violet-100', ring: 'ring-violet-300' },
-  { key: 'delivered',       label: 'Delivered',   bg: 'bg-teal-50',    text: 'text-teal-800',   border: 'border-l-teal-400',   activeBg: 'bg-teal-100',   ring: 'ring-teal-300'   },
   { key: 'confirmed',       label: 'Confirmed',   bg: 'bg-green-50',   text: 'text-green-800',  border: 'border-l-green-500',  activeBg: 'bg-green-100',  ring: 'ring-green-300'  },
   { key: 'return_requested',label: 'Returns',     bg: 'bg-orange-50',  text: 'text-orange-700', border: 'border-l-orange-400', activeBg: 'bg-orange-100', ring: 'ring-orange-300' },
 ];
@@ -78,15 +77,14 @@ export default function VendorDashboard() {
   const handleReject = async (id, reason) => { await rejectOrder(id, reason); await fetchData(); };
 
   const RETURN_STATUSES = ['return_requested','return_accepted','return_dispatched','return_received','return_settled','return_cancelled'];
-  const POST_ACCEPTED   = ['accepted','dispatched','delivered','confirmed',...RETURN_STATUSES];
+  const POST_ACCEPTED   = ['accepted','dispatched','confirmed',...RETURN_STATUSES];
 
   const counts = {
     all:              orders.length,
     pending:          orders.filter((o) => o.status === 'pending').length,
     accepted:         orders.filter((o) => POST_ACCEPTED.includes(o.status)).length,
     rejected:         orders.filter((o) => o.status === 'rejected').length,
-    dispatched:       orders.filter((o) => ['dispatched','delivered','confirmed',...RETURN_STATUSES].includes(o.status)).length,
-    delivered:        orders.filter((o) => ['delivered','confirmed',...RETURN_STATUSES].includes(o.status)).length,
+    dispatched:       orders.filter((o) => ['dispatched','confirmed',...RETURN_STATUSES].includes(o.status)).length,
     confirmed:        orders.filter((o) => ['confirmed',...RETURN_STATUSES].includes(o.status)).length,
     return_requested: orders.filter((o) => RETURN_STATUSES.includes(o.status)).length,
   };
@@ -102,8 +100,7 @@ export default function VendorDashboard() {
     pending:          ['pending'],
     accepted:         POST_ACCEPTED,
     rejected:         ['rejected'],
-    dispatched:       ['dispatched','delivered','confirmed',...RETURN_STATUSES],
-    delivered:        ['delivered','confirmed',...RETURN_STATUSES],
+    dispatched:       ['dispatched','confirmed',...RETURN_STATUSES],
     confirmed:        ['confirmed',...RETURN_STATUSES],
     return_requested: RETURN_STATUSES,
   };

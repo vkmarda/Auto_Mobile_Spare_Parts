@@ -5,7 +5,7 @@ import { getRetailerById } from '../../api/vendor.api';
 import RetailerOrderRow from '../../components/RetailerOrderRow';
 import Skeleton from '../../components/Skeleton';
 
-const STATUSES = ['all', 'pending', 'accepted', 'dispatched', 'delivered', 'confirmed', 'rejected'];
+const STATUSES = ['all', 'pending', 'accepted', 'dispatched', 'confirmed', 'rejected'];
 
 export default function VendorRetailerDetail() {
   const { id } = useParams();
