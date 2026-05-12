@@ -20,3 +20,9 @@ npm-debug.log*
 
 # Seed images (local downloads only)
 backend/src/db/seeds/images/
+
+# Docs (local diagrams)
+docs/
+
+# Claude Code
+.claude/

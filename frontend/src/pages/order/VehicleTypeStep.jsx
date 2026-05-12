@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bike, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { IconMotorbike, IconScooter } from '@tabler/icons-react';
 import { getVehicleTypes } from '../../api/vehicles.api';
 import { useOrderFlow } from '../../context/OrderFlowContext';
 
@@ -33,8 +34,8 @@ function SearchBar() {
   );
 }
 
-// Lucide Bike covers both bike and scooter types
-const SUBTITLES = { bike: 'Motorcycles & dirt bikes', scooter: 'City & geared scooters' };
+const ICONS = { bike: IconMotorbike, motorcycle: IconMotorbike, scooter: IconScooter };
+const SUBTITLES = { bike: 'Motorcycles & dirt bikes', motorcycle: 'Motorcycles & dirt bikes', scooter: 'City & geared scooters' };
 const STEPS = ['Vehicle', 'Brand', 'Model'];
 
 function ProgressBar({ current }) {
@@ -112,7 +113,7 @@ export default function VehicleTypeStep() {
                 <button key={t.name} onClick={() => select(t)}
                   className={`rounded-2xl p-8 border-2 text-center transition-all hover:scale-105 shadow-sm
                     ${sel === t.name ? 'border-blue-500 bg-blue-50' : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-md'}`}>
-                  <Bike size={44} className="mx-auto mb-3 text-gray-600" />
+                  {(() => { const Icon = ICONS[slug] || IconMotorbike; return <Icon size={48} className="mx-auto mb-3 text-gray-600" />; })()}
                   <p className="text-base font-bold text-gray-900">{t.name}</p>
                   <p className="text-xs text-gray-400 mt-1">{SUBTITLES[slug] || ''}</p>
                 </button>
