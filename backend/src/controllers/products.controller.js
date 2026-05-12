@@ -226,20 +226,29 @@ const getVendorsByProduct = async (req, res) => {
        JOIN users u ON u.id = p.vendor_id
        WHERE p.sku = (SELECT sku FROM products WHERE id = $1)
          AND p.sku IS NOT NULL AND p.sku != ''
+         AND p.vendor_id IS NOT NULL
        ORDER BY u.name ASC`,
       [id]
     );
-    // Fallback: if no SKU match, return the single vendor for this product
-    if (result.rows.length === 0) {
-      const fallback = await query(
-        `SELECT p.id AS product_id, p.vendor_id, u.name AS vendor_name
-         FROM products p JOIN users u ON u.id = p.vendor_id
-         WHERE p.id = $1`,
-        [id]
-      );
-      return res.json(fallback.rows);
-    }
-    res.json(result.rows);
+    if (result.rows.length > 0) return res.json(result.rows);
+
+    // Fallback: direct vendor on this product
+    const direct = await query(
+      `SELECT p.id AS product_id, p.vendor_id, u.name AS vendor_name
+       FROM products p JOIN users u ON u.id = p.vendor_id
+       WHERE p.id = $1 AND p.vendor_id IS NOT NULL`,
+      [id]
+    );
+    if (direct.rows.length > 0) return res.json(direct.rows);
+
+    // Last resort: product has no vendor_id — return all active vendors
+    // so the retailer can still pick one and place the order
+    const allVendors = await query(
+      `SELECT $1::int AS product_id, id AS vendor_id, name AS vendor_name
+       FROM users WHERE role = 'vendor' ORDER BY name ASC`,
+      [id]
+    );
+    res.json(allVendors.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
